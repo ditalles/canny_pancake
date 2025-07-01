@@ -3,89 +3,588 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Line Drawing</title>
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
-<script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js" crossorigin="anonymous"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" crossorigin="anonymous"></script>
-
+    <title>AI Line Drawing Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+            --dark-color: #343a40;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 2rem auto;
+            max-width: 1000px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content-section {
+            padding: 2rem;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            margin-bottom: 2rem;
+            background: #f8f9fa;
+        }
+
+        .upload-area.dragover {
+            border-color: var(--primary-color);
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .upload-area i {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .file-info {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .preview-container {
+            display: none;
+            margin: 2rem 0;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .method-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .method-card.active {
+            border-color: var(--primary-color);
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .parameter-group {
+            background: #fff;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 10px;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .alert {
+            border-radius: 10px;
+            border: none;
+            margin: 1rem 0;
+        }
+
+        .result-section {
+            display: none;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #eee;
+        }
+
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .comparison-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+
+        .form-range {
+            accent-color: var(--primary-color);
+        }
+
+        .range-value {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="row mt-5">
-            <div class="col-md-8 offset-md-2">
-                <h1 class="mb-4">Convert image to line drawing</h1>
-                <form id="image-form" enctype="multipart/form-data" class="mb-4">
-                    <div class="mb-3">
-                        <label for="image-file" class="form-label">Select an image:</label>
-                        <input type="file" id="image-file" name="file" accept="image/*" class="form-control">
+    <div class="container-fluid">
+        <div class="main-container">
+            <div class="header">
+                <h1><i class="fas fa-paint-brush"></i> AI Line Drawing Converter</h1>
+                <p>Transform your photos into beautiful line drawings using advanced edge detection</p>
+            </div>
+
+            <div class="content-section">
+                <!-- File Upload Section -->
+                <div class="upload-area" id="upload-area">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h4>Choose an image or drag it here</h4>
+                    <p class="text-muted mb-3">Supports JPG, PNG, GIF, BMP, WebP (max 16MB)</p>
+                    <input type="file" id="image-file" name="file" accept="image/*" class="d-none">
+                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('image-file').click()">
+                        Select Image
+                    </button>
+                </div>
+
+                <div class="file-info" id="file-info">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <span id="file-name"></span>
+                    <small class="text-muted ms-2" id="file-size"></small>
+                </div>
+
+                <!-- Image Preview -->
+                <div class="preview-container" id="preview-container">
+                    <h5><i class="fas fa-eye"></i> Preview</h5>
+                    <div class="text-center">
+                        <img id="image-preview" class="image-preview" alt="Image preview">
+                    </div>
+                </div>
+
+                <!-- Processing Method Selection -->
+                <div class="parameter-group">
+                    <h5><i class="fas fa-cogs"></i> Processing Method</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="method-card active" data-method="canny">
+                                <input type="radio" name="method" value="canny" id="method-canny" checked class="d-none">
+                                <label for="method-canny" class="w-100 cursor-pointer">
+                                    <h6><i class="fas fa-sliders-h"></i> Manual Canny</h6>
+                                    <p class="small text-muted mb-0">Full control over edge detection parameters</p>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="method-card" data-method="auto_canny">
+                                <input type="radio" name="method" value="auto_canny" id="method-auto" class="d-none">
+                                <label for="method-auto" class="w-100 cursor-pointer">
+                                    <h6><i class="fas fa-magic"></i> Auto Canny</h6>
+                                    <p class="small text-muted mb-0">Automatic threshold detection</p>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="method-card" data-method="log">
+                                <input type="radio" name="method" value="log" id="method-log" class="d-none">
+                                <label for="method-log" class="w-100 cursor-pointer">
+                                    <h6><i class="fas fa-bezier-curve"></i> LoG Filter</h6>
+                                    <p class="small text-muted mb-0">Laplacian of Gaussian edge detection</p>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parameters -->
+                <div class="parameter-group">
+                    <h5><i class="fas fa-adjust"></i> Parameters</h5>
+                    
+                    <!-- Common Parameters -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="blur_kernel_size" class="form-label">
+                                Blur Kernel Size <span class="range-value" id="blur-value">5</span>
+                            </label>
+                            <input type="range" id="blur_kernel_size" name="blur_kernel_size" 
+                                   class="form-range" min="1" max="31" step="2" value="5">
+                            <small class="text-muted">Controls image smoothing before edge detection</small>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="method" class="form-label">Method:</label>
-                        <select id="method" name="method" class="form-select">
-                            <option value="canny">Canny</option>
-                            <option value="auto_canny">Auto Canny</option>
-                            <option value="log">LoG</option>
-                        </select>
+                    <!-- Canny-specific Parameters -->
+                    <div id="canny-params" class="canny-params">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="low_threshold" class="form-label">
+                                    Low Threshold <span class="range-value" id="low-value">100</span>
+                                </label>
+                                <input type="range" id="low_threshold" name="low_threshold" 
+                                       class="form-range" min="0" max="255" value="100">
+                                <small class="text-muted">Lower edge detection threshold</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="high_threshold" class="form-label">
+                                    High Threshold <span class="range-value" id="high-value">200</span>
+                                </label>
+                                <input type="range" id="high_threshold" name="high_threshold" 
+                                       class="form-range" min="0" max="255" value="200">
+                                <small class="text-muted">Upper edge detection threshold</small>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="blur_kernel_size" class="form-label">Blur kernel size:</label>
-                        <input type="number" id="blur_kernel_size" name="blur_kernel_size" value="5" min="1" step="2" class="form-control">
+                    <!-- LoG-specific Parameters -->
+                    <div id="log-params" class="log-params" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="sigma" class="form-label">
+                                    Sigma <span class="range-value" id="sigma-value">1.0</span>
+                                </label>
+                                <input type="range" id="sigma" name="sigma" 
+                                       class="form-range" min="0.1" max="5.0" step="0.1" value="1.0">
+                                <small class="text-muted">Gaussian blur standard deviation</small>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    <div class="mb-3">
-                        <label for="low_threshold" class="form-label">Low threshold:</label>
-                        <input type="number" id="low_threshold" name="low_threshold" value="100" min="0" max="255" class="form-control">
+                <!-- Convert Button -->
+                <div class="text-center">
+                    <button type="button" id="convert-btn" class="btn btn-primary btn-lg" disabled>
+                        <i class="fas fa-magic"></i> Convert to Line Drawing
+                    </button>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div class="loading-spinner" id="loading-spinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
                     </div>
+                    <p class="mt-2">Converting your image to line drawing...</p>
+                </div>
 
-                    <div class="mb-3">
-                        <label for="high_threshold" class="form-label">High threshold:</label>
-                        <input type="number" id="high_threshold" name="high_threshold" value="200" min="0" max="255" class="form-control">
+                <!-- Error Alert -->
+                <div id="error-alert" class="alert alert-danger d-none">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="error-message"></span>
+                </div>
+
+                <!-- Results Section -->
+                <div class="result-section" id="result-section">
+                    <h4><i class="fas fa-star"></i> Results</h4>
+                    <div class="comparison-container">
+                        <div>
+                            <h6 class="text-center">Original</h6>
+                            <img id="original-image" class="img-fluid rounded" alt="Original image">
+                        </div>
+                        <div>
+                            <h6 class="text-center">Line Drawing</h6>
+                            <img id="result-image" class="img-fluid rounded" alt="Line drawing result">
+                        </div>
                     </div>
-
-                    <button type="submit" class="btn btn-primary">Convert</button>
-                </form>
-
-                <div id="result" style="display: none;">
-                    <h2 class="mb-4">Result</h2>
-                    <img id="output-image" src="" alt="Output image" style="max-width: 100%;">
+                    <div class="text-center mt-3">
+                        <button type="button" id="download-btn" class="btn btn-success">
+                            <i class="fas fa-download"></i> Download Result
+                        </button>
+                        <button type="button" id="new-image-btn" class="btn btn-outline-primary ms-2">
+                            <i class="fas fa-plus"></i> Process Another Image
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-  <script>
-    $(document).ready(function () {
-        $("#image-form").on("submit", function (event) {
-            event.preventDefault();
-            const formData = new FormData(this);
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedFile = null;
+        
+        // DOM elements
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('image-file');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const previewContainer = document.getElementById('preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const convertBtn = document.getElementById('convert-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const errorAlert = document.getElementById('error-alert');
+        const errorMessage = document.getElementById('error-message');
+        const resultSection = document.getElementById('result-section');
+        const originalImage = document.getElementById('original-image');
+        const resultImage = document.getElementById('result-image');
+        const downloadBtn = document.getElementById('download-btn');
+        const newImageBtn = document.getElementById('new-image-btn');
 
-            $.ajax({
-                type: "POST",
-                url: "/api/line-drawing",
-                data: formData,
-                contentType: false,
-                processData: false,
-                success: function (response) {
-                    const imageBase64 = response.image;
-                    $("#result").html(`<img src="data:image/jpeg;base64,${imageBase64}" class="img-fluid" alt="Line Drawing">`);
-                },
-                error: function (error) {
-                    console.log(error);
-                }
+        // Method cards
+        const methodCards = document.querySelectorAll('.method-card');
+        const cannyParams = document.getElementById('canny-params');
+        const logParams = document.getElementById('log-params');
+
+        // Range inputs
+        const blurRange = document.getElementById('blur_kernel_size');
+        const lowRange = document.getElementById('low_threshold');
+        const highRange = document.getElementById('high_threshold');
+        const sigmaRange = document.getElementById('sigma');
+
+        // Initialize event listeners
+        initializeEventListeners();
+
+        function initializeEventListeners() {
+            // File input and drag-drop
+            fileInput.addEventListener('change', handleFileSelect);
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+
+            // Method selection
+            methodCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const method = card.dataset.method;
+                    selectMethod(method);
+                });
             });
-        });
-    });
-</script>
 
-    
+            // Range inputs
+            blurRange.addEventListener('input', () => updateRangeValue('blur-value', blurRange.value));
+            lowRange.addEventListener('input', () => updateRangeValue('low-value', lowRange.value));
+            highRange.addEventListener('input', () => updateRangeValue('high-value', highRange.value));
+            sigmaRange.addEventListener('input', () => updateRangeValue('sigma-value', sigmaRange.value));
+
+            // Buttons
+            convertBtn.addEventListener('click', processImage);
+            downloadBtn.addEventListener('click', downloadResult);
+            newImageBtn.addEventListener('click', resetForm);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                processFileSelection(file);
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                processFileSelection(files[0]);
+            }
+        }
+
+        function processFileSelection(file) {
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                showError('Invalid file type. Please select a valid image file.');
+                return;
+            }
+
+            // Validate file size (16MB limit)
+            if (file.size > 16 * 1024 * 1024) {
+                showError('File too large. Maximum size is 16MB.');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Update file info
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileInfo.style.display = 'block';
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                previewContainer.style.display = 'block';
+                convertBtn.disabled = false;
+                hideError();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function selectMethod(method) {
+            // Update UI
+            methodCards.forEach(card => card.classList.remove('active'));
+            document.querySelector(`[data-method="${method}"]`).classList.add('active');
+            document.querySelector(`input[value="${method}"]`).checked = true;
+
+            // Show/hide parameters
+            if (method === 'canny') {
+                cannyParams.style.display = 'block';
+                logParams.style.display = 'none';
+            } else if (method === 'log') {
+                cannyParams.style.display = 'none';
+                logParams.style.display = 'block';
+            } else {
+                cannyParams.style.display = 'none';
+                logParams.style.display = 'none';
+            }
+        }
+
+        function updateRangeValue(elementId, value) {
+            document.getElementById(elementId).textContent = value;
+        }
+
+        async function processImage() {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('method', document.querySelector('input[name="method"]:checked').value);
+            formData.append('blur_kernel_size', blurRange.value);
+            formData.append('low_threshold', lowRange.value);
+            formData.append('high_threshold', highRange.value);
+            formData.append('sigma', sigmaRange.value);
+
+            // Show loading state
+            convertBtn.disabled = true;
+            loadingSpinner.style.display = 'block';
+            hideError();
+            resultSection.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/line-drawing', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Show results
+                    originalImage.src = imagePreview.src;
+                    resultImage.src = `data:image/jpeg;base64,${data.image}`;
+                    resultSection.style.display = 'block';
+                    
+                    // Scroll to results
+                    resultSection.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    showError(data.error || 'An error occurred while processing the image.');
+                }
+            } catch (error) {
+                showError('Network error. Please check your connection and try again.');
+                console.error('Error:', error);
+            } finally {
+                convertBtn.disabled = false;
+                loadingSpinner.style.display = 'none';
+            }
+        }
+
+        function downloadResult() {
+            const link = document.createElement('a');
+            link.download = 'line_drawing.jpg';
+            link.href = resultImage.src;
+            link.click();
+        }
+
+        function resetForm() {
+            selectedFile = null;
+            fileInput.value = '';
+            fileInfo.style.display = 'none';
+            previewContainer.style.display = 'none';
+            resultSection.style.display = 'none';
+            convertBtn.disabled = true;
+            hideError();
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorAlert.classList.remove('d-none');
+        }
+
+        function hideError() {
+            errorAlert.classList.add('d-none');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
 </body>
 </html>
 
