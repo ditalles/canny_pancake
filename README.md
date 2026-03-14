@@ -27,8 +27,6 @@ Photo → Face detection → Edge detection → Tone segmentation → Path plann
 | `payment.py` | Stripe payment integration |
 | `config.py` | Centralised settings (bed size, feed rates, serial port, etc.) |
 | `templates/index.html` | Single-page web UI |
-| `pancake_pipeline.py` | Standalone CLI script |
-| `test_pipeline.py` | Offline test script (no printer needed) |
 
 ## Setup
 
@@ -39,32 +37,6 @@ pip install -r requirements.txt
 Dependencies: Flask, opencv-python-headless, numpy, Pillow, pyserial, stripe.
 
 ## Usage
-
-### CLI
-
-```bash
-# Basic
-python pancake_pipeline.py photo.jpg
-
-# With options
-python pancake_pipeline.py photo.jpg \
-  --method auto_canny \
-  --blur 7 \
-  --tones 3 \
-  --output-dir results/ \
-  --bed-width 200 --bed-height 200
-```
-
-Outputs saved to the output directory:
-
-- `1_face_crop.png` — detected face
-- `2_edges.png` — edge lines
-- `3_tonal_preview.png` — tone map overlay
-- `4_tone_0.png`, `4_tone_1.png` — individual tone masks
-- `5_gcode_preview.png` — path visualisation
-- `output.gcode` — machine instructions
-
-### Web App
 
 ```bash
 python app.py

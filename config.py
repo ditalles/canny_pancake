@@ -20,9 +20,6 @@ Z_HEIGHT = float(os.environ.get("Z_HEIGHT", "1.0"))                   # nozzle h
 # Tone settings
 DEFAULT_NUM_TONES = int(os.environ.get("DEFAULT_NUM_TONES", "3"))
 
-# Tool codes for each batter dispenser
-TOOL_CODES = ["T0", "T1", "T2"]
-
 # Dry-run mode (log G-code instead of sending to printer)
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
