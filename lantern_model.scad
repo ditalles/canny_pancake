@@ -144,14 +144,14 @@ module roof() {
                     cube([top_w + 10, roof_r * 3, roof_r * 2], center=true);
             }
 
-        // End caps (solid semicircles, sized to match the smaller vault)
+        // End caps (solid semicircles — cut bottom half in world Z)
         for (sx = [-1, 1])
             translate([sx * (top_w/2 + 1.5), 0, frame/2])
-            rotate([0, 90, 0])
                 difference() {
-                    cylinder(r=roof_r, h=frame, center=true);
+                    rotate([0, 90, 0])
+                        cylinder(r=roof_r, h=frame, center=true);
                     translate([0, 0, -roof_r])
-                        cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
+                        cube([frame + 2, roof_r * 3, roof_r * 2], center=true);
                 }
 
         // Front/back flaps — on the base plate, outside the top tier footprint
