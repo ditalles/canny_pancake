@@ -6,46 +6,40 @@ $fn = 50;
 
 // ─── Parameters ───
 
-// Frame
-frame = 2.5;        // Metal frame bar width
+frame = 2.5;
 
-// Tier sizes [width, depth, height] — top is largest
-top_w = 72;   top_d = 52;   top_h = 48;
-mid_w = 56;   mid_d = 42;   mid_h = 42;
-bot_w = 36;   bot_d = 28;   bot_h = 22;
+// Tier sizes — top is widest/squattest, bottom is smallest
+top_w = 78;   top_d = 55;   top_h = 38;   // wide & short
+mid_w = 52;   mid_d = 40;   mid_h = 38;
+bot_w = 32;   bot_d = 26;   bot_h = 16;   // small
 
-band = 5;           // Spacer band height between tiers
-roof_r = 28;        // Barrel vault radius
+band = 4;
+roof_r = 22;        // Tighter barrel vault, closer to top tier width
 
-chain_h = 35;
-bracket_reach = 110;
+chain_h = 12;       // Short chain
+bracket_reach = 80;
 
-// ─── Helper: one glass face with mullion grid ───
+// ─── Glass face with mullion grid ───
 
 module glass_face(w, h, cols, rows) {
-    // White glass background
     color([0.92, 0.9, 0.85])
         cube([w, 1.2, h], center=true);
 
-    // Outer border frame
     color([0.12, 0.1, 0.08]) {
-        // Top & bottom bars
+        // Border
         translate([0, 0, h/2])  cube([w + 1, frame, frame], center=true);
         translate([0, 0, -h/2]) cube([w + 1, frame, frame], center=true);
-        // Left & right bars
         translate([w/2, 0, 0])  cube([frame, frame, h + 1], center=true);
         translate([-w/2, 0, 0]) cube([frame, frame, h + 1], center=true);
-    }
 
-    // Interior mullion grid
-    color([0.12, 0.1, 0.08]) {
-        // Vertical dividers
+        // Vertical mullions
         for (c = [1:cols-1]) {
             xpos = -w/2 + c * (w / cols);
             translate([xpos, 0, 0])
                 cube([frame * 0.7, frame, h], center=true);
         }
-        // Horizontal dividers
+        // Horizontal mullions
+        if (rows > 1)
         for (r = [1:rows-1]) {
             zpos = -h/2 + r * (h / rows);
             translate([0, 0, zpos])
@@ -54,33 +48,33 @@ module glass_face(w, h, cols, rows) {
     }
 }
 
-// ─── One complete tier ───
+// ─── Complete tier ───
 
 module tier(w, d, h, cols, rows) {
+    gw = w - frame * 2;
+    gd = d - frame * 2;
+    gh = h - frame * 2;
+
     // 4 glass faces
-    // Front
     translate([0, d/2, 0])
-        glass_face(w - frame*2, h - frame*2, cols, rows);
-    // Back
+        glass_face(gw, gh, cols, rows);
     translate([0, -d/2, 0])
-        glass_face(w - frame*2, h - frame*2, cols, rows);
-    // Right
+        glass_face(gw, gh, cols, rows);
     translate([w/2, 0, 0])
         rotate([0, 0, 90])
-            glass_face(d - frame*2, h - frame*2, cols, rows);
-    // Left
+            glass_face(gd, gh, cols, rows);
     translate([-w/2, 0, 0])
         rotate([0, 0, 90])
-            glass_face(d - frame*2, h - frame*2, cols, rows);
+            glass_face(gd, gh, cols, rows);
 
-    // 4 vertical corner posts
+    // Corner posts
     color([0.12, 0.1, 0.08])
     for (sx = [-1, 1])
         for (sy = [-1, 1])
             translate([sx * w/2, sy * d/2, 0])
                 cube([frame, frame, h], center=true);
 
-    // Top and bottom cap plates
+    // Top/bottom cap plates
     color([0.15, 0.12, 0.1]) {
         translate([0, 0, h/2])
             cube([w + 2, d + 2, frame], center=true);
@@ -89,11 +83,16 @@ module tier(w, d, h, cols, rows) {
     }
 }
 
-// ─── Spacer band between tiers ───
+// ─── Spacer band ───
 
-module spacer(w, d) {
+module spacer(w_top, d_top, w_bot, d_bot) {
     color([0.15, 0.12, 0.1])
-        cube([w + 3, d + 3, band], center=true);
+        hull() {
+            translate([0, 0, band/2])
+                cube([w_top + 2, d_top + 2, 0.1], center=true);
+            translate([0, 0, -band/2])
+                cube([w_bot + 2, d_bot + 2, 0.1], center=true);
+        }
 }
 
 // ─── Barrel vault roof ───
@@ -104,36 +103,32 @@ module barrel_roof(w, d) {
         translate([0, 0, -1])
             cube([w + 4, d + 4, frame], center=true);
 
-        // Half-cylinder vault
+        // Half-cylinder vault — sized to match the depth
         difference() {
-            // Outer vault
             rotate([0, 90, 0])
                 cylinder(r=roof_r, h=w + 4, center=true);
-            // Hollow inside
             rotate([0, 90, 0])
                 cylinder(r=roof_r - frame, h=w + 6, center=true);
-            // Cut away bottom half
             translate([0, 0, -roof_r])
                 cube([w + 10, roof_r * 3, roof_r * 2], center=true);
         }
 
-        // Ridge bar on top
+        // Ridge bar
         translate([0, 0, roof_r - 1])
             cube([w + 6, frame, frame], center=true);
 
-        // End caps (solid half-circles)
+        // End caps
         for (sx = [-1, 1])
             translate([sx * (w/2 + 1.5), 0, 0])
             rotate([0, 90, 0])
                 difference() {
                     cylinder(r=roof_r, h=frame, center=true);
-                    translate([0, 0, 0])
-                        cylinder(r=roof_r - frame * 2, h=frame + 1, center=true);
+                    cylinder(r=roof_r - frame * 2, h=frame + 1, center=true);
                     translate([0, 0, -roof_r])
                         cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
                 }
 
-        // End cap glass fill
+        // Glass in end caps
         for (sx = [-1, 1])
             color([0.92, 0.9, 0.85])
             translate([sx * (w/2 + 1.5), 0, 0])
@@ -145,7 +140,7 @@ module barrel_roof(w, d) {
                 }
     }
 
-    // Front/back glass arches
+    // Front/back arch glass
     for (sy = [-1, 1])
         color([0.92, 0.9, 0.85])
         translate([0, sy * (d/2), 0])
@@ -158,67 +153,62 @@ module barrel_roof(w, d) {
                 }
 }
 
-// ─── Chain ───
+// ─── Short chain ───
 
 module chain() {
-    color([0.2, 0.17, 0.14])
+    color([0.18, 0.15, 0.12])
     for (i = [0:floor(chain_h/7)-1]) {
         translate([0, 0, i * 7]) {
-            if (i % 2 == 0) {
+            if (i % 2 == 0)
                 difference() {
-                    cube([2.5, 5, 7], center=true);
-                    cube([1, 3, 5], center=true);
+                    cube([2, 4, 7], center=true);
+                    cube([0.8, 2.5, 5], center=true);
                 }
-            } else {
+            else
                 difference() {
-                    cube([5, 2.5, 7], center=true);
-                    cube([3, 1, 5], center=true);
+                    cube([4, 2, 7], center=true);
+                    cube([2.5, 0.8, 5], center=true);
                 }
-            }
         }
     }
 }
 
-// ─── Wall bracket with scroll ───
+// ─── Curved bracket arm — curves down from wall ───
 
 module bracket() {
     color([0.12, 0.1, 0.08]) {
         // Wall plate
-        translate([-bracket_reach, 0, 0])
-            cube([8, 35, 55], center=true);
+        translate([-bracket_reach, 0, 10])
+            cube([6, 30, 45], center=true);
 
-        // Main arm
-        hull() {
-            translate([-bracket_reach + 8, 0, 15])
-                cube([4, 5, 5], center=true);
-            translate([0, 0, 0])
-                cube([4, 5, 5], center=true);
+        // Curved arm — arcs down from wall to lantern
+        for (t = [0:3:90]) {
+            hull() {
+                translate([-bracket_reach + 6 + bracket_reach * sin(t), 0,
+                           25 - bracket_reach * 0.3 * (1 - cos(t))])
+                    sphere(r=2.5, $fn=10);
+                translate([-bracket_reach + 6 + bracket_reach * sin(t+3), 0,
+                           25 - bracket_reach * 0.3 * (1 - cos(t+3))])
+                    sphere(r=2.5, $fn=10);
+            }
         }
 
-        // Support strut
-        hull() {
-            translate([-bracket_reach + 8, 0, -10])
-                cube([4, 5, 5], center=true);
-            translate([-25, 0, 10])
-                cube([4, 5, 5], center=true);
-        }
-
-        // Decorative scroll circle
-        translate([-40, 0, 8])
+        // Scroll decoration near wall
+        translate([-bracket_reach + 25, 0, 15])
         rotate([90, 0, 0])
             difference() {
-                cylinder(r=14, h=4, center=true);
-                cylinder(r=10, h=5, center=true);
+                cylinder(r=10, h=3, center=true, $fn=30);
+                cylinder(r=7, h=4, center=true, $fn=30);
             }
 
-        // Hook ring at end
-        translate([3, 0, -5])
+        // Hook at end
+        translate([5, 0, -2])
         rotate([90, 0, 0])
             difference() {
-                cylinder(r=7, h=4, center=true);
-                cylinder(r=5, h=5, center=true);
-                translate([0, -7, 0])
-                    cube([16, 8, 6], center=true);
+                cylinder(r=5, h=3, center=true, $fn=20);
+                cylinder(r=3.5, h=4, center=true, $fn=20);
+                translate([0, -5, 0])
+                    cube([12, 6, 5], center=true);
             }
     }
 }
@@ -226,7 +216,6 @@ module bracket() {
 // ─── Full assembly ───
 
 module lantern() {
-    // Stack from bottom up
     z3 = 0;
     z_sp2 = z3 + bot_h/2 + band/2;
     z2 = z_sp2 + band/2 + mid_h/2;
@@ -240,17 +229,17 @@ module lantern() {
     translate([0, 0, z3])
         tier(bot_w, bot_d, bot_h, 2, 1);
 
-    // Spacer
+    // Tapered spacer bottom→mid
     translate([0, 0, z_sp2])
-        spacer(bot_w, bot_d);
+        spacer(mid_w, mid_d, bot_w, bot_d);
 
     // Middle tier: 2 cols, 2 rows
     translate([0, 0, z2])
         tier(mid_w, mid_d, mid_h, 2, 2);
 
-    // Spacer
+    // Tapered spacer mid→top
     translate([0, 0, z_sp1])
-        spacer(mid_w, mid_d);
+        spacer(top_w, top_d, mid_w, mid_d);
 
     // Top tier: 3 cols, 2 rows
     translate([0, 0, z1])
@@ -260,18 +249,18 @@ module lantern() {
     translate([0, 0, z_roof])
         barrel_roof(top_w, top_d);
 
-    // Chain
+    // Short chain
     translate([0, 0, z_chain])
         chain();
 
-    // Wall bracket
+    // Bracket
     translate([0, 0, z_bracket])
         bracket();
 
-    // Bottom drop cap
+    // Bottom cap
     color([0.15, 0.12, 0.1])
-        translate([0, 0, z3 - bot_h/2 - 4])
-            cube([bot_w * 0.6, bot_d * 0.6, 5], center=true);
+        translate([0, 0, z3 - bot_h/2 - 3])
+            cube([bot_w * 0.5, bot_d * 0.5, 4], center=true);
 }
 
 lantern();
