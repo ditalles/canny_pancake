@@ -23,8 +23,8 @@ top_w = 72;  top_d = 52;  top_h = 32;
 mid_w = 50;  mid_d = 40;  mid_h = 24;
 bot_w = 32;  bot_d = 28;  bot_h = 18;
 
-// Barrel vault roof (shallow — fits within top tier footprint)
-roof_r = 22;
+// Barrel vault roof — half-cylinder spanning full top tier depth
+roof_r = top_d / 2;   // = 26, so vault diameter equals top tier depth
 
 // Front/back flaps on top tier
 flap_ext = 10;
