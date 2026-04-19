@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 test_output/
 test_face.png
+lantern_render.png
+lantern_full.png
