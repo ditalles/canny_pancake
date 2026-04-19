@@ -1,280 +1,277 @@
-// Turkish/Ottoman Hanging Lantern — 4-sided, 3-tier, barrel-vault top
-// Based on traditional Antalya-style street lantern
-// Render: F5 (preview) or F6 (full render) in OpenSCAD
+// Ottoman/Turkish Hanging Lantern — 4-sided, 3-tier, barrel-vault top
+// White glass faces with dark metal mullion grids
+// Render: F5 preview, F6 full render, export STL for 3D printing
 
-$fn = 40;
+$fn = 50;
 
 // ─── Parameters ───
 
-frame_t = 3;          // Metal frame thickness
-glass_t = 1;          // Glass panel thickness
+// Frame
+frame = 2.5;        // Metal frame bar width
 
-// Tier dimensions [width, depth, height] — largest on top, smallest at bottom
-tier1_w = 70;         // Top tier width
-tier1_d = 50;         // Top tier depth
-tier1_h = 50;         // Top tier height
+// Tier sizes [width, depth, height] — top is largest
+top_w = 72;   top_d = 52;   top_h = 48;
+mid_w = 56;   mid_d = 42;   mid_h = 42;
+bot_w = 36;   bot_d = 28;   bot_h = 22;
 
-tier2_w = 55;         // Middle tier width
-tier2_d = 40;         // Middle tier depth
-tier2_h = 45;         // Middle tier height
+band = 5;           // Spacer band height between tiers
+roof_r = 28;        // Barrel vault radius
 
-tier3_w = 35;         // Bottom tier width
-tier3_d = 28;         // Bottom tier depth
-tier3_h = 25;         // Bottom tier height
+chain_h = 35;
+bracket_reach = 110;
 
-band_h = 5;           // Height of frame band between tiers
-roof_h = 20;          // Barrel vault roof height
+// ─── Helper: one glass face with mullion grid ───
 
-// Bracket
-bracket_arm = 100;    // Horizontal reach
-bracket_rod = 4;      // Rod diameter
-chain_len = 30;       // Chain length
+module glass_face(w, h, cols, rows) {
+    // White glass background
+    color([0.92, 0.9, 0.85])
+        cube([w, 1.2, h], center=true);
 
-// ─── Modules ───
-
-// Solid box frame (outer shell minus inner cavity)
-module box_frame(w, d, h) {
-    difference() {
-        cube([w, d, h], center=true);
-        cube([w - frame_t*2, d - frame_t*2, h + 1], center=true);
+    // Outer border frame
+    color([0.12, 0.1, 0.08]) {
+        // Top & bottom bars
+        translate([0, 0, h/2])  cube([w + 1, frame, frame], center=true);
+        translate([0, 0, -h/2]) cube([w + 1, frame, frame], center=true);
+        // Left & right bars
+        translate([w/2, 0, 0])  cube([frame, frame, h + 1], center=true);
+        translate([-w/2, 0, 0]) cube([frame, frame, h + 1], center=true);
     }
-}
 
-// Glass panel with rectangular grid pattern (mullions)
-module glass_panel_with_grid(panel_w, panel_h, cols, rows) {
-    // Base glass panel
-    color([0.9, 0.9, 0.85, 0.6])
-        cube([glass_t, panel_w, panel_h], center=true);
-
-    // Horizontal mullions
-    mullion_t = 2;
-    for (r = [0:rows]) {
-        y_pos = -panel_h/2 + r * (panel_h / rows);
-        color([0.15, 0.12, 0.1])
-            cube([mullion_t + 0.5, panel_w, mullion_t], center=true);
-        if (r < rows) {
-            // nothing — just boundary bars
+    // Interior mullion grid
+    color([0.12, 0.1, 0.08]) {
+        // Vertical dividers
+        for (c = [1:cols-1]) {
+            xpos = -w/2 + c * (w / cols);
+            translate([xpos, 0, 0])
+                cube([frame * 0.7, frame, h], center=true);
+        }
+        // Horizontal dividers
+        for (r = [1:rows-1]) {
+            zpos = -h/2 + r * (h / rows);
+            translate([0, 0, zpos])
+                cube([w, frame, frame * 0.7], center=true);
         }
     }
-
-    // Vertical mullions
-    for (c = [0:cols]) {
-        x_pos = -panel_w/2 + c * (panel_w / cols);
-        color([0.15, 0.12, 0.1])
-            translate([0, x_pos, 0])
-                cube([mullion_t + 0.5, mullion_t, panel_h], center=true);
-    }
-
-    // Horizontal mullions (cross bars)
-    for (r = [0:rows]) {
-        z_pos = -panel_h/2 + r * (panel_h / rows);
-        color([0.15, 0.12, 0.1])
-            translate([0, 0, z_pos])
-                cube([mullion_t + 0.5, panel_w, mullion_t], center=true);
-    }
 }
 
-// A complete tier: frame + 4 glass panels with grid
+// ─── One complete tier ───
+
 module tier(w, d, h, cols, rows) {
-    // Dark metal frame
-    color([0.15, 0.12, 0.1])
-        box_frame(w, d, h);
+    // 4 glass faces
+    // Front
+    translate([0, d/2, 0])
+        glass_face(w - frame*2, h - frame*2, cols, rows);
+    // Back
+    translate([0, -d/2, 0])
+        glass_face(w - frame*2, h - frame*2, cols, rows);
+    // Right
+    translate([w/2, 0, 0])
+        rotate([0, 0, 90])
+            glass_face(d - frame*2, h - frame*2, cols, rows);
+    // Left
+    translate([-w/2, 0, 0])
+        rotate([0, 0, 90])
+            glass_face(d - frame*2, h - frame*2, cols, rows);
 
-    // Top and bottom plates
+    // 4 vertical corner posts
+    color([0.12, 0.1, 0.08])
+    for (sx = [-1, 1])
+        for (sy = [-1, 1])
+            translate([sx * w/2, sy * d/2, 0])
+                cube([frame, frame, h], center=true);
+
+    // Top and bottom cap plates
     color([0.15, 0.12, 0.1]) {
-        translate([0, 0, h/2 - frame_t/2])
-            cube([w, d, frame_t], center=true);
-        translate([0, 0, -h/2 + frame_t/2])
-            cube([w, d, frame_t], center=true);
-    }
-
-    glass_w_front = w - frame_t * 3;
-    glass_w_side = d - frame_t * 3;
-    glass_h = h - frame_t * 3;
-
-    // Front and back panels
-    for (sign = [-1, 1]) {
-        translate([0, sign * d/2, 0])
-            rotate([0, 0, 0])
-                glass_panel_with_grid(glass_w_front, glass_h, cols, rows);
-    }
-
-    // Left and right panels
-    for (sign = [-1, 1]) {
-        translate([sign * w/2, 0, 0])
-            rotate([0, 0, 90])
-                glass_panel_with_grid(glass_w_side, glass_h, cols, rows);
+        translate([0, 0, h/2])
+            cube([w + 2, d + 2, frame], center=true);
+        translate([0, 0, -h/2])
+            cube([w + 2, d + 2, frame], center=true);
     }
 }
 
-// Band between tiers
-module frame_band(w, d) {
+// ─── Spacer band between tiers ───
+
+module spacer(w, d) {
     color([0.15, 0.12, 0.1])
-        cube([w + 4, d + 4, band_h], center=true);
+        cube([w + 3, d + 3, band], center=true);
 }
 
-// Barrel vault roof (half-cylinder)
+// ─── Barrel vault roof ───
+
 module barrel_roof(w, d) {
     color([0.15, 0.12, 0.1]) {
-        // Half cylinder running along the width
-        intersection() {
-            translate([0, 0, 0])
-                rotate([0, 90, 0])
-                    cylinder(r=d/2 + 3, h=w + 6, center=true, $fn=40);
-            translate([0, 0, roof_h/2])
-                cube([w + 8, d + 8, roof_h + 2], center=true);
-        }
+        // Base plate
+        translate([0, 0, -1])
+            cube([w + 4, d + 4, frame], center=true);
 
-        // Flat cap on the ends
-        for (sign = [-1, 1]) {
-            translate([sign * (w/2 + 1), 0, 0])
-                intersection() {
-                    rotate([0, 90, 0])
-                        cylinder(r=d/2 + 2, h=3, center=true, $fn=40);
-                    translate([0, 0, roof_h/2])
-                        cube([5, d + 6, roof_h], center=true);
-                }
+        // Half-cylinder vault
+        difference() {
+            // Outer vault
+            rotate([0, 90, 0])
+                cylinder(r=roof_r, h=w + 4, center=true);
+            // Hollow inside
+            rotate([0, 90, 0])
+                cylinder(r=roof_r - frame, h=w + 6, center=true);
+            // Cut away bottom half
+            translate([0, 0, -roof_r])
+                cube([w + 10, roof_r * 3, roof_r * 2], center=true);
         }
 
         // Ridge bar on top
-        translate([0, 0, d/2 + 2])
-            cube([w + 6, 3, 3], center=true);
+        translate([0, 0, roof_r - 1])
+            cube([w + 6, frame, frame], center=true);
+
+        // End caps (solid half-circles)
+        for (sx = [-1, 1])
+            translate([sx * (w/2 + 1.5), 0, 0])
+            rotate([0, 90, 0])
+                difference() {
+                    cylinder(r=roof_r, h=frame, center=true);
+                    translate([0, 0, 0])
+                        cylinder(r=roof_r - frame * 2, h=frame + 1, center=true);
+                    translate([0, 0, -roof_r])
+                        cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
+                }
+
+        // End cap glass fill
+        for (sx = [-1, 1])
+            color([0.92, 0.9, 0.85])
+            translate([sx * (w/2 + 1.5), 0, 0])
+            rotate([0, 90, 0])
+                difference() {
+                    cylinder(r=roof_r - frame * 2 - 0.5, h=0.8, center=true);
+                    translate([0, 0, -roof_r])
+                        cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
+                }
     }
 
-    // Glass end panels (arched)
-    for (sign = [-1, 1]) {
-        color([0.9, 0.9, 0.85, 0.4])
-        translate([sign * (w/2), 0, 0])
-            intersection() {
-                rotate([0, 90, 0])
-                    cylinder(r=d/2, h=glass_t, center=true, $fn=40);
-                translate([0, 0, roof_h/2])
-                    cube([glass_t + 1, d, roof_h], center=true);
-            }
-    }
-
-    // Front/back glass on roof
-    for (sign = [-1, 1]) {
-        color([0.9, 0.9, 0.85, 0.4])
-        translate([0, sign * (d/2), 0])
-            intersection() {
-                cube([w, glass_t, roof_h * 2], center=true);
-                translate([0, 0, 0])
-                    rotate([0, 90, 0])
-                        cylinder(r=d/2, h=w, center=true, $fn=40);
-                translate([0, 0, roof_h/2])
-                    cube([w + 1, glass_t + 1, roof_h + 1], center=true);
-            }
-    }
+    // Front/back glass arches
+    for (sy = [-1, 1])
+        color([0.92, 0.9, 0.85])
+        translate([0, sy * (d/2), 0])
+            rotate([0, 90, 0])
+                difference() {
+                    cylinder(r=roof_r - frame - 0.5, h=w - frame*2, center=true);
+                    cylinder(r=roof_r - frame - 1.5, h=w - frame*2 + 1, center=true);
+                    translate([0, 0, -roof_r])
+                        cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
+                }
 }
 
-// Chain link
-module chain_link(h) {
-    color([0.2, 0.18, 0.15]) {
-        links = floor(h / 8);
-        for (i = [0:links-1]) {
-            translate([0, 0, -i * 8]) {
-                if (i % 2 == 0) {
-                    difference() {
-                        cube([3, 6, 8], center=true);
-                        cube([1.5, 4, 6], center=true);
-                    }
-                } else {
-                    difference() {
-                        cube([6, 3, 8], center=true);
-                        cube([4, 1.5, 6], center=true);
-                    }
+// ─── Chain ───
+
+module chain() {
+    color([0.2, 0.17, 0.14])
+    for (i = [0:floor(chain_h/7)-1]) {
+        translate([0, 0, i * 7]) {
+            if (i % 2 == 0) {
+                difference() {
+                    cube([2.5, 5, 7], center=true);
+                    cube([1, 3, 5], center=true);
+                }
+            } else {
+                difference() {
+                    cube([5, 2.5, 7], center=true);
+                    cube([3, 1, 5], center=true);
                 }
             }
         }
     }
 }
 
-// Wall bracket with scroll
-module wall_bracket() {
-    color([0.15, 0.12, 0.1]) {
+// ─── Wall bracket with scroll ───
+
+module bracket() {
+    color([0.12, 0.1, 0.08]) {
         // Wall plate
-        translate([-bracket_arm, 0, 0])
-            cube([8, 30, 50], center=true);
+        translate([-bracket_reach, 0, 0])
+            cube([8, 35, 55], center=true);
 
-        // Horizontal arm
-        translate([-bracket_arm/2, 0, 20])
-            rotate([0, 5, 0])
-                cube([bracket_arm, bracket_rod, bracket_rod], center=true);
-
-        // Diagonal support
-        translate([-bracket_arm * 0.7, 0, 10])
-            rotate([0, 35, 0])
-                cube([bracket_arm * 0.5, bracket_rod, bracket_rod], center=true);
-
-        // Decorative scroll (circle at the end)
-        translate([-bracket_arm * 0.3, 0, 15]) {
-            difference() {
-                cylinder(r=12, h=bracket_rod, center=true, $fn=30);
-                cylinder(r=9, h=bracket_rod + 1, center=true, $fn=30);
-            }
+        // Main arm
+        hull() {
+            translate([-bracket_reach + 8, 0, 15])
+                cube([4, 5, 5], center=true);
+            translate([0, 0, 0])
+                cube([4, 5, 5], center=true);
         }
 
-        // Hook at end for chain
-        translate([5, 0, 22])
+        // Support strut
+        hull() {
+            translate([-bracket_reach + 8, 0, -10])
+                cube([4, 5, 5], center=true);
+            translate([-25, 0, 10])
+                cube([4, 5, 5], center=true);
+        }
+
+        // Decorative scroll circle
+        translate([-40, 0, 8])
+        rotate([90, 0, 0])
             difference() {
-                cylinder(r=6, h=bracket_rod, center=true, $fn=20);
-                cylinder(r=4, h=bracket_rod + 1, center=true, $fn=20);
-                translate([0, -6, 0])
-                    cube([14, 6, bracket_rod + 2], center=true);
+                cylinder(r=14, h=4, center=true);
+                cylinder(r=10, h=5, center=true);
+            }
+
+        // Hook ring at end
+        translate([3, 0, -5])
+        rotate([90, 0, 0])
+            difference() {
+                cylinder(r=7, h=4, center=true);
+                cylinder(r=5, h=5, center=true);
+                translate([0, -7, 0])
+                    cube([16, 8, 6], center=true);
             }
     }
 }
 
-// ─── Full Assembly ───
+// ─── Full assembly ───
 
 module lantern() {
-    // Tier positions (stacked bottom to top)
-    z_tier3 = 0;
-    z_band2 = z_tier3 + tier3_h/2 + band_h/2;
-    z_tier2 = z_band2 + band_h/2 + tier2_h/2;
-    z_band1 = z_tier2 + tier2_h/2 + band_h/2;
-    z_tier1 = z_band1 + band_h/2 + tier1_h/2;
-    z_roof  = z_tier1 + tier1_h/2;
+    // Stack from bottom up
+    z3 = 0;
+    z_sp2 = z3 + bot_h/2 + band/2;
+    z2 = z_sp2 + band/2 + mid_h/2;
+    z_sp1 = z2 + mid_h/2 + band/2;
+    z1 = z_sp1 + band/2 + top_h/2;
+    z_roof = z1 + top_h/2;
+    z_chain = z_roof + roof_r;
+    z_bracket = z_chain + chain_h;
 
-    // Bottom tier — 2 panes, 1 row
-    translate([0, 0, z_tier3])
-        tier(tier3_w, tier3_d, tier3_h, 2, 1);
+    // Bottom tier: 2 cols, 1 row
+    translate([0, 0, z3])
+        tier(bot_w, bot_d, bot_h, 2, 1);
 
-    // Band between bottom and middle
-    translate([0, 0, z_band2])
-        frame_band(tier3_w, tier3_d);
+    // Spacer
+    translate([0, 0, z_sp2])
+        spacer(bot_w, bot_d);
 
-    // Middle tier — 2 panes, 2 rows
-    translate([0, 0, z_tier2])
-        tier(tier2_w, tier2_d, tier2_h, 2, 2);
+    // Middle tier: 2 cols, 2 rows
+    translate([0, 0, z2])
+        tier(mid_w, mid_d, mid_h, 2, 2);
 
-    // Band between middle and top
-    translate([0, 0, z_band1])
-        frame_band(tier2_w, tier2_d);
+    // Spacer
+    translate([0, 0, z_sp1])
+        spacer(mid_w, mid_d);
 
-    // Top tier — 3 panes, 2 rows
-    translate([0, 0, z_tier1])
-        tier(tier1_w, tier1_d, tier1_h, 3, 2);
+    // Top tier: 3 cols, 2 rows
+    translate([0, 0, z1])
+        tier(top_w, top_d, top_h, 3, 2);
 
     // Barrel vault roof
     translate([0, 0, z_roof])
-        barrel_roof(tier1_w, tier1_d);
+        barrel_roof(top_w, top_d);
 
     // Chain
-    translate([0, 0, z_roof + roof_h])
-        chain_link(chain_len);
+    translate([0, 0, z_chain])
+        chain();
 
     // Wall bracket
-    translate([0, 0, z_roof + roof_h + chain_len])
-        wall_bracket();
+    translate([0, 0, z_bracket])
+        bracket();
 
-    // Bottom cap
+    // Bottom drop cap
     color([0.15, 0.12, 0.1])
-    translate([0, 0, z_tier3 - tier3_h/2 - 3])
-        cube([tier3_w * 0.7, tier3_d * 0.7, 4], center=true);
+        translate([0, 0, z3 - bot_h/2 - 4])
+            cube([bot_w * 0.6, bot_d * 0.6, 5], center=true);
 }
-
-// ─── Render ───
 
 lantern();
