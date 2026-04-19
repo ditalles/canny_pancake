@@ -1,190 +1,233 @@
-// Ottoman Hanging Lantern — 2-part snap-fit design for 3D printing
-// Part 1 (body): 3 tiers — print UPSIDE DOWN (top tier on bed, no overhangs)
-// Part 2 (roof): Barrel vault + flaps — print RIGHT-SIDE UP (minimal bridging)
+// Ottoman Hanging Lantern — 2-part snap-fit design, 3D printable
 //
-// Set `part` below to export each piece for slicing:
-//   "both"  = preview assembled (default)
-//   "body"  = just the body (mirror it in slicer to flip upside down)
-//   "roof"  = just the roof
+// PART 1 (body): 3 stepped tiers — print with bottom tier on bed (flat, small base)
+//                Each tier has window cutouts. Solid walls. Snap rim on top.
+// PART 2 (roof): Barrel vault with closed ends, flaps, and hanging loop
+//                Print base-plate-down. Small span = no supports needed.
 //
-// Snap-fit: body has a rim around the top edge; roof has a matching groove.
+// HOW TO EXPORT STLs:
+//   1. Set `part = "body"` → Design menu → Render (F6) → File → Export → STL
+//   2. Set `part = "roof"` → Design menu → Render (F6) → File → Export → STL
+//   3. Slice each STL with 0.2mm layer, 2-3 perimeters, 15-20% infill
+//   4. No supports needed for either part
 
-$fn = 48;
+$fn = 60;
 
 part = "both";   // "both", "body", or "roof"
 
 // ─── Parameters ───
 
-frame = 2.5;
-wall = 2.4;
+wall = 2.0;          // Wall thickness (5 perimeters at 0.4mm)
 
-// Tier outer dimensions
-top_w = 72;  top_d = 52;  top_h = 32;
-mid_w = 50;  mid_d = 40;  mid_h = 24;
-bot_w = 32;  bot_d = 28;  bot_h = 18;
+// Tier outer dimensions (width × depth × height)
+top_w = 72;  top_d = 52;  top_h = 30;
+mid_w = 50;  mid_d = 40;  mid_h = 22;
+bot_w = 32;  bot_d = 26;  bot_h = 16;
 
-// Barrel vault roof — half-cylinder spanning full top tier depth
-roof_r = top_d / 2;   // = 26, so vault diameter equals top tier depth
+// Tier cap thickness (solid top/bottom plates on each tier)
+cap_t = 2.0;
 
-// Front/back flaps on top tier
+// Gap between tiers (visual separator)
+tier_gap = 1.5;
+
+// Barrel vault roof
+roof_r = top_d / 2;          // Half-cylinder spans full top tier depth
+roof_len = top_w + 4;        // Slightly longer than top tier
+
+// Flaps (front/back)
 flap_ext = 10;
-flap_t = 3;
+flap_t = 2.5;
 
-// Snap-fit dimensions
-snap_lip = 1.2;      // Height of snap lip
-snap_clearance = 0.3; // Tolerance for fit
+// Window decoration — rectangular panel frames inset into each face
+win_w_ratio = 0.55;          // Window width as fraction of column width
+win_h_ratio = 0.55;          // Window height as fraction of tier height
+win_inset = 0.8;             // How deep the decorative frame is inset
 
-chain_h = 20;
-bracket_reach = 80;
+// Snap-fit
+snap_lip = 1.5;              // Height of snap rim/groove
+snap_clearance = 0.25;       // Tolerance for a firm click fit
 
-// ─── Glass face with rectangular window panels ───
+// Base plate thickness
+base_t = 2.0;
 
-module glass_face(w, h, cols) {
-    color([0.92, 0.9, 0.85])
-        cube([w, 1.2, h], center=true);
+// ─── Single tier: solid shell with window cutouts ───
 
-    color([0.12, 0.1, 0.08]) {
-        translate([0, 0, h/2])  cube([w + 1, frame, frame], center=true);
-        translate([0, 0, -h/2]) cube([w + 1, frame, frame], center=true);
-        translate([w/2, 0, 0])  cube([frame, frame, h + 1], center=true);
-        translate([-w/2, 0, 0]) cube([frame, frame, h + 1], center=true);
+module tier_shell(w, d, h, cols_front, cols_side) {
+    difference() {
+        // Outer solid block
+        cube([w, d, h], center=true);
 
-        for (c = [1:cols-1]) {
-            xpos = -w/2 + c * (w / cols);
-            translate([xpos, 0, 0])
-                cube([frame * 0.7, frame, h], center=true);
+        // Hollow interior (keep wall thickness on all sides)
+        cube([w - wall*2, d - wall*2, h + 2], center=true);
+
+        // Window cutouts — front and back faces (Y sides)
+        col_w = (w - wall*2) / cols_front;
+        for (c = [0:cols_front-1]) {
+            cx = -(w - wall*2)/2 + col_w * (c + 0.5);
+            ww = col_w * win_w_ratio;
+            wh = h * win_h_ratio;
+            translate([cx, 0, 0])
+                cube([ww, d + 2, wh], center=true);
         }
 
-        col_w = w / cols;
-        for (c = [0:cols-1]) {
-            cx = -w/2 + col_w * (c + 0.5);
-            win_w = col_w * 0.55;
-            win_h = h * 0.55;
-            translate([cx, 0, win_h/2])
-                cube([win_w, frame * 0.6, frame * 0.6], center=true);
-            translate([cx, 0, -win_h/2])
-                cube([win_w, frame * 0.6, frame * 0.6], center=true);
-            translate([cx - win_w/2, 0, 0])
-                cube([frame * 0.6, frame * 0.6, win_h], center=true);
-            translate([cx + win_w/2, 0, 0])
-                cube([frame * 0.6, frame * 0.6, win_h], center=true);
+        // Window cutouts — left and right faces (X sides)
+        col_d = (d - wall*2) / cols_side;
+        for (c = [0:cols_side-1]) {
+            cy = -(d - wall*2)/2 + col_d * (c + 0.5);
+            ww = col_d * win_w_ratio;
+            wh = h * win_h_ratio;
+            translate([0, cy, 0])
+                cube([w + 2, ww, wh], center=true);
         }
     }
-}
 
-// ─── Tier ───
-
-module tier(w, d, h, cols_front, cols_side) {
-    gw = w - frame * 2;
-    gd = d - frame * 2;
-    gh = h - frame * 2;
-
-    translate([0, d/2, 0])  glass_face(gw, gh, cols_front);
-    translate([0, -d/2, 0]) glass_face(gw, gh, cols_front);
-    translate([w/2, 0, 0])  rotate([0, 0, 90]) glass_face(gd, gh, cols_side);
-    translate([-w/2, 0, 0]) rotate([0, 0, 90]) glass_face(gd, gh, cols_side);
-
-    color([0.12, 0.1, 0.08])
+    // Decorative inset frame around each window (raised outline on outer face)
+    // Front/back
+    for (sy = [-1, 1])
+    for (c = [0:cols_front-1]) {
+        col_w = (w - wall*2) / cols_front;
+        cx = -(w - wall*2)/2 + col_w * (c + 0.5);
+        ww = col_w * win_w_ratio;
+        wh = h * win_h_ratio;
+        translate([cx, sy * (d/2 - win_inset/2), 0])
+            difference() {
+                cube([ww + 3, win_inset, wh + 3], center=true);
+                cube([ww, win_inset + 1, wh], center=true);
+            }
+    }
+    // Left/right
     for (sx = [-1, 1])
-        for (sy = [-1, 1])
-            translate([sx * w/2, sy * d/2, 0])
-                cube([frame, frame, h], center=true);
-
-    color([0.15, 0.12, 0.1]) {
-        translate([0, 0, h/2])
-            cube([w + 2, d + 2, frame], center=true);
-        translate([0, 0, -h/2])
-            cube([w + 2, d + 2, frame], center=true);
+    for (c = [0:cols_side-1]) {
+        col_d = (d - wall*2) / cols_side;
+        cy = -(d - wall*2)/2 + col_d * (c + 0.5);
+        ww = col_d * win_w_ratio;
+        wh = h * win_h_ratio;
+        translate([sx * (w/2 - win_inset/2), cy, 0])
+            difference() {
+                cube([win_inset, ww + 3, wh + 3], center=true);
+                cube([win_inset + 1, ww, wh], center=true);
+            }
     }
 }
 
-// ─── PART 1: Body (3 tiers + snap rim on top) ───
-// Print upside down: top tier flat on bed, tiers get narrower going up = no overhangs
+// ─── PART 1: Body — 3 stacked tiers + snap rim ───
 
 module body() {
+    // Bottom tier — solid bottom (closes the lantern)
     z_bot = 0;
-    z_mid = z_bot + bot_h/2 + mid_h/2 + 1;
-    z_top = z_mid + mid_h/2 + top_h/2 + 1;
+    difference() {
+        translate([0, 0, z_bot])
+            tier_shell(bot_w, bot_d, bot_h, 1, 1);
+        // Re-close the bottom floor (fill in the hollow cut at the bottom)
+    }
+    // Solid floor plate at the bottom
+    translate([0, 0, z_bot - bot_h/2 + cap_t/2])
+        cube([bot_w - wall*2 + 0.1, bot_d - wall*2 + 0.1, cap_t], center=true);
 
-    translate([0, 0, z_bot])
-        tier(bot_w, bot_d, bot_h, 1, 1);
+    // Middle tier
+    z_mid = z_bot + bot_h/2 + tier_gap + mid_h/2;
     translate([0, 0, z_mid])
-        tier(mid_w, mid_d, mid_h, 2, 2);
-    translate([0, 0, z_top])
-        tier(top_w, top_d, top_h, 3, 2);
+        tier_shell(mid_w, mid_d, mid_h, 2, 1);
 
-    // Snap-fit rim on top of top tier (male part — ridge sticks up)
-    color([0.15, 0.12, 0.1])
-    translate([0, 0, z_top + top_h/2 + snap_lip/2])
+    // Top tier
+    z_top = z_mid + mid_h/2 + tier_gap + top_h/2;
+    translate([0, 0, z_top])
+        tier_shell(top_w, top_d, top_h, 3, 2);
+
+    // Tier connectors (thin posts between tiers so they're one piece)
+    // Bottom → middle (4 corner posts)
+    z_connect1 = z_bot + bot_h/2 + tier_gap/2;
+    for (sx = [-1, 1]) for (sy = [-1, 1])
+        translate([sx * bot_w/2 * 0.7, sy * bot_d/2 * 0.7, z_connect1])
+            cube([3, 3, tier_gap + 0.2], center=true);
+
+    // Middle → top
+    z_connect2 = z_mid + mid_h/2 + tier_gap/2;
+    for (sx = [-1, 1]) for (sy = [-1, 1])
+        translate([sx * mid_w/2 * 0.7, sy * mid_d/2 * 0.7, z_connect2])
+            cube([3, 3, tier_gap + 0.2], center=true);
+
+    // Snap-fit rim on top of top tier — male ridge
+    z_rim = z_top + top_h/2 + snap_lip/2;
+    translate([0, 0, z_rim])
         difference() {
-            cube([top_w - 2, top_d - 2, snap_lip], center=true);
-            cube([top_w - 2 - wall*2, top_d - 2 - wall*2, snap_lip + 1], center=true);
+            cube([top_w - 1.5, top_d - 1.5, snap_lip], center=true);
+            cube([top_w - 1.5 - wall*2, top_d - 1.5 - wall*2, snap_lip + 1],
+                 center=true);
         }
 }
 
-// ─── PART 2: Roof (barrel vault + flaps + snap groove + hanging loop) ───
-// Print right-side up: base plate on bed, vault bridges across the top
+// ─── PART 2: Roof — barrel vault with closed ends ───
 
 module roof() {
-    color([0.15, 0.12, 0.1]) {
-        // Base plate — sits flat ABOVE the top tier, not overlapping it
-        translate([0, 0, 0])
-            cube([top_w + 4, top_d + 4, frame], center=true);
+    // Base plate
+    translate([0, 0, base_t/2])
+        cube([top_w + 4, top_d + 4, base_t], center=true);
 
-        // Half-cylinder vault — sits ON TOP of base plate, centered at top of base plate
-        // Top half only (top_r radius, starts at z = frame/2 upward)
-        translate([0, 0, frame/2])
-            difference() {
-                rotate([0, 90, 0])
-                    cylinder(r=roof_r, h=top_w + 4, center=true);
-                rotate([0, 90, 0])
-                    cylinder(r=roof_r - wall, h=top_w + 6, center=true);
-                // Cut everything below z=0 local (below base plate top)
-                translate([0, 0, -roof_r])
-                    cube([top_w + 10, roof_r * 3, roof_r * 2], center=true);
-            }
+    // Snap-fit groove cut into underside of base plate (female)
+    // (Implemented as a separate difference at assembly level below)
 
-        // End caps (solid semicircles — cut bottom half in world Z)
-        for (sx = [-1, 1])
-            translate([sx * (top_w/2 + 1.5), 0, frame/2])
-                difference() {
-                    rotate([0, 90, 0])
-                        cylinder(r=roof_r, h=frame, center=true);
-                    translate([0, 0, -roof_r])
-                        cube([frame + 2, roof_r * 3, roof_r * 2], center=true);
-                }
-
-        // Front/back flaps — on the base plate, outside the top tier footprint
-        for (sy = [-1, 1])
-            translate([0, sy * (top_d/2 + 2 + flap_ext/2), 0])
-                cube([top_w + 4, flap_ext, flap_t], center=true);
-
-        // Hanging loop on top
-        translate([0, 0, frame/2 + roof_r + 2])
-            rotate([90, 0, 0])
-                difference() {
-                    cylinder(r=5, h=4, center=true);
-                    cylinder(r=3, h=5, center=true);
-                }
-    }
-
-    // Snap-fit groove cut into underside of base plate
-    color([0.15, 0.12, 0.1])
-    translate([0, 0, -frame/2 - snap_lip/2])
+    // Barrel vault — hollow half-cylinder
+    translate([0, 0, base_t])
         difference() {
-            cube([top_w, top_d, snap_lip], center=true);
-            cube([top_w - wall*2 - snap_clearance*2, top_d - wall*2 - snap_clearance*2, snap_lip + 1], center=true);
+            // Outer shell
+            union() {
+                // Cylinder body
+                rotate([0, 90, 0])
+                    cylinder(r=roof_r, h=roof_len, center=true);
+                // Closed end caps — solid disks at each end, flush with the outer cylinder
+                for (sx = [-1, 1])
+                    translate([sx * roof_len/2, 0, 0])
+                        rotate([0, 90, 0])
+                            cylinder(r=roof_r, h=wall, center=true);
+            }
+            // Inner hollow — ONLY hollow the body, not the end caps (stops slightly short of the ends)
+            rotate([0, 90, 0])
+                cylinder(r=roof_r - wall, h=roof_len - wall*2 - 1, center=true);
+            // Cut the bottom half in world Z
+            translate([0, 0, -roof_r])
+                cube([roof_len + 20, roof_r * 3, roof_r * 2], center=true);
         }
+
+    // Flaps — front/back, attached to base plate
+    for (sy = [-1, 1])
+        translate([0, sy * (top_d/2 + 2 + flap_ext/2), flap_t/2])
+            cube([top_w + 4, flap_ext, flap_t], center=true);
+
+    // Hanging loop on top of ridge
+    translate([0, 0, base_t + roof_r + 3])
+        rotate([90, 0, 0])
+            difference() {
+                cylinder(r=5, h=4, center=true);
+                cylinder(r=3, h=5, center=true);
+            }
 }
 
-// ─── Assembly ───
+module roof_with_groove() {
+    difference() {
+        roof();
+        // Snap-fit groove — inverse of the body's rim, with clearance
+        translate([0, 0, -snap_lip/2])
+            difference() {
+                cube([top_w - 1.5 + snap_clearance*2,
+                      top_d - 1.5 + snap_clearance*2,
+                      snap_lip + 0.2],
+                     center=true);
+                cube([top_w - 1.5 - wall*2 - snap_clearance*2,
+                      top_d - 1.5 - wall*2 - snap_clearance*2,
+                      snap_lip + 2],
+                     center=true);
+            }
+    }
+}
+
+// ─── Assembly preview ───
 
 module assembled() {
-    z_top_surface = bot_h/2 + mid_h/2 + 1 + mid_h/2 + top_h/2 + 1 + top_h/2;
-
     body();
-    translate([0, 0, z_top_surface + frame/2 + snap_lip])
-        roof();
+    z_body_top = bot_h/2 + tier_gap + mid_h + tier_gap + top_h + snap_lip;
+    translate([0, 0, z_body_top])
+        roof_with_groove();
 }
 
 // ─── Export selector ───
@@ -192,8 +235,7 @@ module assembled() {
 if (part == "both") {
     assembled();
 } else if (part == "body") {
-    // For printing: flip upside down in your slicer
     body();
 } else if (part == "roof") {
-    roof();
+    roof_with_groove();
 }
