@@ -1,196 +1,199 @@
-// Ottoman Hanging Lantern — 3D-printable single piece
-// Designed for FDM printing with NO supports needed:
-//  - Tier transitions are sloped (45°), not stepped (no horizontal overhangs)
-//  - Hipped pyramid roof (all faces <= 45° from vertical)
-//  - Windows are cut through the walls (no glass; use translucent filament or LED)
-//  - Integrated hanging loop on top
-// Print orientation: as-is, bottom on build plate. 0.4mm nozzle, 0.2mm layer, 2 perimeters.
+// Ottoman Hanging Lantern — 2-part snap-fit design for 3D printing
+// Part 1 (body): 3 tiers — print UPSIDE DOWN (top tier on bed, no overhangs)
+// Part 2 (roof): Barrel vault + flaps — print RIGHT-SIDE UP (minimal bridging)
+//
+// Set `part` below to export each piece for slicing:
+//   "both"  = preview assembled (default)
+//   "body"  = just the body (mirror it in slicer to flip upside down)
+//   "roof"  = just the roof
+//
+// Snap-fit: body has a rim around the top edge; roof has a matching groove.
 
 $fn = 48;
 
+part = "both";   // "both", "body", or "roof"
+
 // ─── Parameters ───
 
-wall = 2.4;               // Wall thickness (6 perimeters at 0.4mm)
+frame = 2.5;
+wall = 2.4;
 
 // Tier outer dimensions
-top_w = 70;  top_d = 50;  top_h = 28;
-mid_w = 48;  mid_d = 36;  mid_h = 20;
-bot_w = 28;  bot_d = 22;  bot_h = 16;
+top_w = 72;  top_d = 52;  top_h = 32;
+mid_w = 50;  mid_d = 40;  mid_h = 24;
+bot_w = 32;  bot_d = 28;  bot_h = 18;
 
-// Slanted transitions between tiers (45° = safe overhang)
-trans_h = 11;             // must be >= (top_w - mid_w)/2 and >= (mid_w - bot_w)/2
+// Barrel vault roof
+roof_r = 28;
 
-// Hipped pyramid roof
-roof_h = 22;              // Roof peak height above top tier
+// Front/back flaps on top tier
+flap_ext = 10;
+flap_t = 3;
 
-// Eave flaps on front/back of top tier
-flap_ext = 9;             // How far flap sticks out beyond tier face
-flap_t = 3;               // Thickness (avoids thin unprintable features)
+// Snap-fit dimensions
+snap_lip = 1.2;      // Height of snap lip
+snap_clearance = 0.3; // Tolerance for fit
 
-// Window cutouts
-win_margin_x = 5;         // Horizontal border around windows
-win_margin_z = 4;         // Vertical border
+chain_h = 20;
+bracket_reach = 80;
 
-// Hanging loop on top
-loop_r = 4;
-loop_t = 3;
+// ─── Glass face with rectangular window panels ───
 
-// ─── Outer shell (solid, no cutouts yet) ───
+module glass_face(w, h, cols) {
+    color([0.92, 0.9, 0.85])
+        cube([w, 1.2, h], center=true);
 
-module outer_shell() {
-    // Bottom tier
-    translate([0, 0, bot_h/2])
-        cube([bot_w, bot_d, bot_h], center=true);
+    color([0.12, 0.1, 0.08]) {
+        translate([0, 0, h/2])  cube([w + 1, frame, frame], center=true);
+        translate([0, 0, -h/2]) cube([w + 1, frame, frame], center=true);
+        translate([w/2, 0, 0])  cube([frame, frame, h + 1], center=true);
+        translate([-w/2, 0, 0]) cube([frame, frame, h + 1], center=true);
 
-    // Slanted transition bot → mid
-    translate([0, 0, bot_h + trans_h/2])
-        hull() {
-            translate([0, 0, -trans_h/2])
-                cube([bot_w, bot_d, 0.01], center=true);
-            translate([0, 0, trans_h/2])
-                cube([mid_w, mid_d, 0.01], center=true);
+        for (c = [1:cols-1]) {
+            xpos = -w/2 + c * (w / cols);
+            translate([xpos, 0, 0])
+                cube([frame * 0.7, frame, h], center=true);
         }
 
-    // Middle tier
-    translate([0, 0, bot_h + trans_h + mid_h/2])
-        cube([mid_w, mid_d, mid_h], center=true);
-
-    // Slanted transition mid → top
-    translate([0, 0, bot_h + trans_h + mid_h + trans_h/2])
-        hull() {
-            translate([0, 0, -trans_h/2])
-                cube([mid_w, mid_d, 0.01], center=true);
-            translate([0, 0, trans_h/2])
-                cube([top_w, top_d, 0.01], center=true);
+        col_w = w / cols;
+        for (c = [0:cols-1]) {
+            cx = -w/2 + col_w * (c + 0.5);
+            win_w = col_w * 0.55;
+            win_h = h * 0.55;
+            translate([cx, 0, win_h/2])
+                cube([win_w, frame * 0.6, frame * 0.6], center=true);
+            translate([cx, 0, -win_h/2])
+                cube([win_w, frame * 0.6, frame * 0.6], center=true);
+            translate([cx - win_w/2, 0, 0])
+                cube([frame * 0.6, frame * 0.6, win_h], center=true);
+            translate([cx + win_w/2, 0, 0])
+                cube([frame * 0.6, frame * 0.6, win_h], center=true);
         }
-
-    // Top tier
-    translate([0, 0, bot_h + trans_h + mid_h + trans_h + top_h/2])
-        cube([top_w, top_d, top_h], center=true);
-
-    // Front/back flaps (sloped eaves — angled so overhang stays ~45°)
-    z_flap = bot_h + trans_h + mid_h + trans_h + top_h - flap_t;
-    for (sy = [-1, 1])
-        translate([0, sy * (top_d/2 + flap_ext/2), z_flap + flap_t/2])
-            hull() {
-                translate([0, -sy * flap_ext/2, flap_t/2])
-                    cube([top_w + 2, 0.01, 0.01], center=true);
-                translate([0, sy * flap_ext/2, -flap_t/2])
-                    cube([top_w + 2, 0.01, 0.01], center=true);
-            }
-
-    // Hipped pyramid roof
-    z_roof = bot_h + trans_h + mid_h + trans_h + top_h;
-    translate([0, 0, z_roof])
-        hull() {
-            cube([top_w, top_d, 0.01], center=true);
-            translate([0, 0, roof_h])
-                cube([4, 4, 0.01], center=true);
-        }
-
-    // Hanging loop on top
-    translate([0, 0, z_roof + roof_h + loop_r])
-        rotate([90, 0, 0])
-            difference() {
-                cylinder(r=loop_r + loop_t/2, h=loop_t, center=true);
-                cylinder(r=loop_r - loop_t/2, h=loop_t + 1, center=true);
-            }
-}
-
-// ─── Inner cavity (hollow the body, keep solid bottom) ───
-
-module inner_cavity() {
-    // Shrink each tier by wall thickness on all sides
-    translate([0, 0, wall + bot_h/2])
-        cube([bot_w - wall*2, bot_d - wall*2, bot_h], center=true);
-
-    translate([0, 0, bot_h + trans_h/2])
-        hull() {
-            translate([0, 0, -trans_h/2])
-                cube([bot_w - wall*2, bot_d - wall*2, 0.01], center=true);
-            translate([0, 0, trans_h/2])
-                cube([mid_w - wall*2, mid_d - wall*2, 0.01], center=true);
-        }
-
-    translate([0, 0, bot_h + trans_h + mid_h/2])
-        cube([mid_w - wall*2, mid_d - wall*2, mid_h], center=true);
-
-    translate([0, 0, bot_h + trans_h + mid_h + trans_h/2])
-        hull() {
-            translate([0, 0, -trans_h/2])
-                cube([mid_w - wall*2, mid_d - wall*2, 0.01], center=true);
-            translate([0, 0, trans_h/2])
-                cube([top_w - wall*2, top_d - wall*2, 0.01], center=true);
-        }
-
-    translate([0, 0, bot_h + trans_h + mid_h + trans_h + top_h/2])
-        cube([top_w - wall*2, top_d - wall*2, top_h], center=true);
-
-    // Extend into the roof (hollow roof too — saves print time)
-    z_roof = bot_h + trans_h + mid_h + trans_h + top_h;
-    translate([0, 0, z_roof])
-        hull() {
-            cube([top_w - wall*2, top_d - wall*2, 0.01], center=true);
-            translate([0, 0, roof_h - wall])
-                cube([2, 2, 0.01], center=true);
-        }
-}
-
-// ─── Window cutouts (3 cols on top front/back, 2 cols on mid, 1 col on bot) ───
-
-module windows() {
-    // Top tier: 3 windows on front and back
-    z_top = bot_h + trans_h + mid_h + trans_h + top_h/2;
-    win_h_top = top_h - win_margin_z * 2;
-    col_w_top = (top_w - win_margin_x * 2) / 3;
-    for (c = [0:2])
-        for (sy = [-1, 1])
-            translate([-(top_w/2) + win_margin_x + col_w_top * (c + 0.5),
-                       sy * (top_d/2),
-                       z_top])
-                cube([col_w_top - 3, wall * 4, win_h_top], center=true);
-    // Top tier: 2 windows on left/right
-    col_w_top_s = (top_d - win_margin_x * 2) / 2;
-    for (c = [0:1])
-        for (sx = [-1, 1])
-            translate([sx * (top_w/2),
-                       -(top_d/2) + win_margin_x + col_w_top_s * (c + 0.5),
-                       z_top])
-                cube([wall * 4, col_w_top_s - 3, win_h_top], center=true);
-
-    // Middle tier: 2 windows on front/back, 1 on sides
-    z_mid = bot_h + trans_h + mid_h/2;
-    win_h_mid = mid_h - win_margin_z * 2;
-    col_w_mid = (mid_w - win_margin_x * 2) / 2;
-    for (c = [0:1])
-        for (sy = [-1, 1])
-            translate([-(mid_w/2) + win_margin_x + col_w_mid * (c + 0.5),
-                       sy * (mid_d/2),
-                       z_mid])
-                cube([col_w_mid - 3, wall * 4, win_h_mid], center=true);
-    for (sx = [-1, 1])
-        translate([sx * (mid_w/2), 0, z_mid])
-            cube([wall * 4, mid_d - win_margin_x * 2, win_h_mid], center=true);
-
-    // Bottom tier: 1 window each side
-    z_bot = bot_h/2;
-    win_h_bot = bot_h - win_margin_z * 2;
-    for (sy = [-1, 1])
-        translate([0, sy * (bot_d/2), z_bot])
-            cube([bot_w - win_margin_x * 2, wall * 4, win_h_bot], center=true);
-    for (sx = [-1, 1])
-        translate([sx * (bot_w/2), 0, z_bot])
-            cube([wall * 4, bot_d - win_margin_x * 2, win_h_bot], center=true);
-}
-
-// ─── Final printable model ───
-
-module lantern_printable() {
-    difference() {
-        outer_shell();
-        inner_cavity();
-        windows();
     }
 }
 
-lantern_printable();
+// ─── Tier ───
+
+module tier(w, d, h, cols_front, cols_side) {
+    gw = w - frame * 2;
+    gd = d - frame * 2;
+    gh = h - frame * 2;
+
+    translate([0, d/2, 0])  glass_face(gw, gh, cols_front);
+    translate([0, -d/2, 0]) glass_face(gw, gh, cols_front);
+    translate([w/2, 0, 0])  rotate([0, 0, 90]) glass_face(gd, gh, cols_side);
+    translate([-w/2, 0, 0]) rotate([0, 0, 90]) glass_face(gd, gh, cols_side);
+
+    color([0.12, 0.1, 0.08])
+    for (sx = [-1, 1])
+        for (sy = [-1, 1])
+            translate([sx * w/2, sy * d/2, 0])
+                cube([frame, frame, h], center=true);
+
+    color([0.15, 0.12, 0.1]) {
+        translate([0, 0, h/2])
+            cube([w + 2, d + 2, frame], center=true);
+        translate([0, 0, -h/2])
+            cube([w + 2, d + 2, frame], center=true);
+    }
+}
+
+// ─── PART 1: Body (3 tiers + snap rim on top) ───
+// Print upside down: top tier flat on bed, tiers get narrower going up = no overhangs
+
+module body() {
+    z_bot = 0;
+    z_mid = z_bot + bot_h/2 + mid_h/2 + 1;
+    z_top = z_mid + mid_h/2 + top_h/2 + 1;
+
+    translate([0, 0, z_bot])
+        tier(bot_w, bot_d, bot_h, 1, 1);
+    translate([0, 0, z_mid])
+        tier(mid_w, mid_d, mid_h, 2, 2);
+    translate([0, 0, z_top])
+        tier(top_w, top_d, top_h, 3, 2);
+
+    // Snap-fit rim on top of top tier (male part — ridge sticks up)
+    color([0.15, 0.12, 0.1])
+    translate([0, 0, z_top + top_h/2 + snap_lip/2])
+        difference() {
+            cube([top_w - 2, top_d - 2, snap_lip], center=true);
+            cube([top_w - 2 - wall*2, top_d - 2 - wall*2, snap_lip + 1], center=true);
+        }
+}
+
+// ─── PART 2: Roof (barrel vault + flaps + snap groove + hanging loop) ───
+// Print right-side up: base plate on bed, vault bridges across the top
+
+module roof() {
+    color([0.15, 0.12, 0.1]) {
+        // Base plate
+        translate([0, 0, 0])
+            cube([top_w + 4, top_d + 4, frame], center=true);
+
+        // Snap-fit groove (female part — slot in the bottom of base plate)
+        // Achieved by the base plate being slightly larger than the snap rim
+
+        // Half-cylinder vault
+        difference() {
+            rotate([0, 90, 0])
+                cylinder(r=roof_r, h=top_w + 4, center=true);
+            rotate([0, 90, 0])
+                cylinder(r=roof_r - wall, h=top_w + 6, center=true);
+            translate([0, 0, -roof_r])
+                cube([top_w + 10, roof_r * 3, roof_r * 2], center=true);
+        }
+
+        // End caps (solid semicircles)
+        for (sx = [-1, 1])
+            translate([sx * (top_w/2 + 1.5), 0, 0])
+            rotate([0, 90, 0])
+                difference() {
+                    cylinder(r=roof_r, h=frame, center=true);
+                    translate([0, 0, -roof_r])
+                        cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
+                }
+
+        // Front/back flaps
+        for (sy = [-1, 1])
+            translate([0, sy * (top_d/2 + flap_ext/2), -frame/2])
+                cube([top_w + 4, flap_ext, flap_t], center=true);
+
+        // Hanging loop on top
+        translate([0, 0, roof_r + 2])
+            rotate([90, 0, 0])
+                difference() {
+                    cylinder(r=5, h=4, center=true);
+                    cylinder(r=3, h=5, center=true);
+                }
+    }
+
+    // Snap-fit groove cut into underside of base plate
+    color([0.15, 0.12, 0.1])
+    translate([0, 0, -frame/2 - snap_lip/2])
+        difference() {
+            cube([top_w, top_d, snap_lip], center=true);
+            cube([top_w - wall*2 - snap_clearance*2, top_d - wall*2 - snap_clearance*2, snap_lip + 1], center=true);
+        }
+}
+
+// ─── Assembly ───
+
+module assembled() {
+    z_top_surface = bot_h/2 + mid_h/2 + 1 + mid_h/2 + top_h/2 + 1 + top_h/2;
+
+    body();
+    translate([0, 0, z_top_surface + frame/2 + snap_lip])
+        roof();
+}
+
+// ─── Export selector ───
+
+if (part == "both") {
+    assembled();
+} else if (part == "body") {
+    // For printing: flip upside down in your slicer
+    body();
+} else if (part == "roof") {
+    roof();
+}
