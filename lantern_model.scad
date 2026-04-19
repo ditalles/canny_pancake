@@ -1,5 +1,5 @@
-// Ottoman/Turkish Hanging Lantern — 4-sided, 2-tier, pagoda-style with flared eaves
-// White glass faces with dark metal mullion grids
+// Ottoman/Turkish Hanging Lantern — 3-tier, barrel vault top with side flaps
+// White glass faces with dark metal frames and rectangular window panels
 
 $fn = 50;
 
@@ -7,57 +7,78 @@ $fn = 50;
 
 frame = 2.5;
 
-// Two tiers
-top_w = 68;  top_d = 48;  top_h = 30;   // wider
-bot_w = 42;  bot_d = 32;  bot_h = 26;   // smaller, tucked underneath
+// Three tiers — decreasing in size downward
+top_w = 72;  top_d = 52;  top_h = 32;    // widest, tallest
+mid_w = 50;  mid_d = 40;  mid_h = 24;    // middle
+bot_w = 32;  bot_d = 28;  bot_h = 18;    // smallest
 
-// Eaves (the "flaps")
-eave_overhang = 7;
-eave_thick = 2.5;
+// Barrel vault roof
+roof_r = 28;        // Covers full depth of top tier (top_d/2 = 26)
 
-// Pagoda cap
-cap_h = 16;
+// Side flap/wing on top tier
+flap_w = 14;        // How far flap extends beyond top tier sides
+flap_d = 38;        // Depth of flap
+flap_t = 2.5;       // Thickness
 
-chain_h = 12;
+chain_h = 25;
 bracket_reach = 80;
 
-// ─── Glass face with mullion grid ───
+// ─── Glass face with rectangular window panels ───
+// Each panel has a rectangular frame inside it (decorative window motif)
 
-module glass_face(w, h, cols, rows) {
+module glass_face(w, h, cols) {
+    // Glass pane (single background)
     color([0.92, 0.9, 0.85])
         cube([w, 1.2, h], center=true);
 
     color([0.12, 0.1, 0.08]) {
+        // Outer frame
         translate([0, 0, h/2])  cube([w + 1, frame, frame], center=true);
         translate([0, 0, -h/2]) cube([w + 1, frame, frame], center=true);
         translate([w/2, 0, 0])  cube([frame, frame, h + 1], center=true);
         translate([-w/2, 0, 0]) cube([frame, frame, h + 1], center=true);
 
+        // Vertical dividers between columns
         for (c = [1:cols-1]) {
             xpos = -w/2 + c * (w / cols);
             translate([xpos, 0, 0])
                 cube([frame * 0.7, frame, h], center=true);
         }
-        if (rows > 1)
-        for (r = [1:rows-1]) {
-            zpos = -h/2 + r * (h / rows);
-            translate([0, 0, zpos])
-                cube([w, frame, frame * 0.7], center=true);
+
+        // Rectangular window frame inside each column
+        col_w = w / cols;
+        for (c = [0:cols-1]) {
+            cx = -w/2 + col_w * (c + 0.5);
+            // Inner rectangle frame
+            win_w = col_w * 0.55;
+            win_h = h * 0.55;
+            // Top bar
+            translate([cx, 0, win_h/2])
+                cube([win_w, frame * 0.6, frame * 0.6], center=true);
+            // Bottom bar
+            translate([cx, 0, -win_h/2])
+                cube([win_w, frame * 0.6, frame * 0.6], center=true);
+            // Left side
+            translate([cx - win_w/2, 0, 0])
+                cube([frame * 0.6, frame * 0.6, win_h], center=true);
+            // Right side
+            translate([cx + win_w/2, 0, 0])
+                cube([frame * 0.6, frame * 0.6, win_h], center=true);
         }
     }
 }
 
-// ─── Tier ───
+// ─── Complete tier ───
 
-module tier(w, d, h, cols, rows) {
+module tier(w, d, h, cols_front, cols_side) {
     gw = w - frame * 2;
     gd = d - frame * 2;
     gh = h - frame * 2;
 
-    translate([0, d/2, 0])  glass_face(gw, gh, cols, rows);
-    translate([0, -d/2, 0]) glass_face(gw, gh, cols, rows);
-    translate([w/2, 0, 0])  rotate([0, 0, 90]) glass_face(gd, gh, cols, rows);
-    translate([-w/2, 0, 0]) rotate([0, 0, 90]) glass_face(gd, gh, cols, rows);
+    translate([0, d/2, 0])  glass_face(gw, gh, cols_front);
+    translate([0, -d/2, 0]) glass_face(gw, gh, cols_front);
+    translate([w/2, 0, 0])  rotate([0, 0, 90]) glass_face(gd, gh, cols_side);
+    translate([-w/2, 0, 0]) rotate([0, 0, 90]) glass_face(gd, gh, cols_side);
 
     color([0.12, 0.1, 0.08])
     for (sx = [-1, 1])
@@ -73,56 +94,60 @@ module tier(w, d, h, cols, rows) {
     }
 }
 
-// ─── Flared eave (the "flap") — sloped pagoda-style overhang ───
+// ─── Barrel vault roof ───
 
-module eave(w, d, overhang, thickness) {
-    color([0.15, 0.12, 0.1])
-        hull() {
-            // Narrow top (attached to tier/cap)
-            translate([0, 0, thickness])
-                cube([w, d, 0.1], center=true);
-            // Wide flared base
-            translate([0, 0, 0])
-                cube([w + overhang * 2, d + overhang * 2, 0.1], center=true);
+module barrel_roof(w, d) {
+    color([0.15, 0.12, 0.1]) {
+        // Base plate
+        translate([0, 0, -1])
+            cube([w + 4, d + 4, frame], center=true);
+
+        // Half-cylinder vault
+        difference() {
+            rotate([0, 90, 0])
+                cylinder(r=roof_r, h=w + 4, center=true);
+            rotate([0, 90, 0])
+                cylinder(r=roof_r - frame, h=w + 6, center=true);
+            translate([0, 0, -roof_r])
+                cube([w + 10, roof_r * 3, roof_r * 2], center=true);
         }
-}
 
-// ─── Pagoda pitched cap ───
-
-module pagoda_cap(w, d, h) {
-    color([0.15, 0.12, 0.1])
-        hull() {
-            cube([w, d, 0.1], center=true);
-            translate([0, 0, h])
-                cube([w * 0.18, d * 0.18, 0.1], center=true);
-        }
-}
-
-// ─── Finial on top of cap ───
-
-module finial() {
-    color([0.12, 0.1, 0.08]) {
-        cylinder(r=1.8, h=5);
-        translate([0, 0, 5])
-            sphere(r=2.2);
+        // End caps (front/back)
+        for (sx = [-1, 1])
+            translate([sx * (w/2 + 1.5), 0, 0])
+            rotate([0, 90, 0])
+                difference() {
+                    cylinder(r=roof_r, h=frame, center=true);
+                    translate([0, 0, -roof_r])
+                        cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
+                }
     }
 }
 
-// ─── Short chain ───
+// ─── Side flap/wing that sticks out from sides of top tier ───
+
+module side_flaps(w, d) {
+    color([0.15, 0.12, 0.1])
+    for (sx = [-1, 1])
+        translate([sx * (w/2 + flap_w/2), 0, 0])
+            cube([flap_w, flap_d, flap_t], center=true);
+}
+
+// ─── Chain ───
 
 module chain() {
     color([0.18, 0.15, 0.12])
-    for (i = [0:floor(chain_h/7)-1]) {
-        translate([0, 0, i * 7]) {
+    for (i = [0:floor(chain_h/6)-1]) {
+        translate([0, 0, i * 6]) {
             if (i % 2 == 0)
                 difference() {
-                    cube([2, 4, 7], center=true);
-                    cube([0.8, 2.5, 5], center=true);
+                    cube([2, 4, 6], center=true);
+                    cube([0.8, 2.5, 4.5], center=true);
                 }
             else
                 difference() {
-                    cube([4, 2, 7], center=true);
-                    cube([2.5, 0.8, 5], center=true);
+                    cube([4, 2, 6], center=true);
+                    cube([2.5, 0.8, 4.5], center=true);
                 }
         }
     }
@@ -167,45 +192,33 @@ module bracket() {
 // ─── Full assembly ───
 
 module lantern() {
-    // Bottom tier at origin
     z_bot = 0;
-    // Mid eave (the "flap" between bottom and top tiers)
-    z_mid_eave = z_bot + bot_h/2 + 1;
-    // Top tier sits on the mid eave
-    z_top = z_mid_eave + eave_thick + top_h/2;
-    // Top eave above top tier
-    z_top_eave = z_top + top_h/2;
-    // Pagoda cap above top eave
-    z_cap = z_top_eave + eave_thick;
-    // Finial on top of cap
-    z_finial = z_cap + cap_h;
-    // Chain
-    z_chain = z_finial + 3;
+    z_mid = z_bot + bot_h/2 + mid_h/2 + 1;
+    z_top = z_mid + mid_h/2 + top_h/2 + 1;
+    z_flaps = z_top + top_h/2 - 1;
+    z_roof = z_top + top_h/2;
+    z_chain = z_roof + roof_r + 2;
     z_bracket = z_chain + chain_h;
 
-    // Bottom tier
+    // Bottom tier (1 col, no inner window)
     translate([0, 0, z_bot])
-        tier(bot_w, bot_d, bot_h, 2, 1);
+        tier(bot_w, bot_d, bot_h, 1, 1);
 
-    // Mid eave (flap between tiers) — based on top tier width, hangs over bottom tier
-    translate([0, 0, z_mid_eave])
-        eave(top_w, top_d, eave_overhang, eave_thick);
+    // Middle tier (2 cols front, 2 cols side)
+    translate([0, 0, z_mid])
+        tier(mid_w, mid_d, mid_h, 2, 2);
 
-    // Top tier
+    // Top tier (3 cols front, 2 cols side)
     translate([0, 0, z_top])
         tier(top_w, top_d, top_h, 3, 2);
 
-    // Top eave above top tier (flap at base of cap)
-    translate([0, 0, z_top_eave])
-        eave(top_w, top_d, eave_overhang, eave_thick);
+    // Side flaps/wings on top tier
+    translate([0, 0, z_flaps])
+        side_flaps(top_w, top_d);
 
-    // Pagoda cap
-    translate([0, 0, z_cap])
-        pagoda_cap(top_w, top_d, cap_h);
-
-    // Finial
-    translate([0, 0, z_finial])
-        finial();
+    // Barrel vault roof
+    translate([0, 0, z_roof])
+        barrel_roof(top_w, top_d);
 
     // Chain
     translate([0, 0, z_chain])
@@ -214,11 +227,6 @@ module lantern() {
     // Bracket
     translate([0, 0, z_bracket])
         bracket();
-
-    // Bottom cap
-    color([0.15, 0.12, 0.1])
-        translate([0, 0, z_bot - bot_h/2 - 2])
-            cube([bot_w * 0.6, bot_d * 0.6, 3], center=true);
 }
 
 lantern();
