@@ -1,231 +1,280 @@
-// Traditional Hexagonal Wall Lantern
-// Render in OpenSCAD: F5 (preview) or F6 (full render)
-// Export as STL for 3D printing
+// Turkish/Ottoman Hanging Lantern — 4-sided, 3-tier, barrel-vault top
+// Based on traditional Antalya-style street lantern
+// Render: F5 (preview) or F6 (full render) in OpenSCAD
 
-$fn = 6;  // Hexagonal cross-section
+$fn = 40;
 
 // ─── Parameters ───
-lantern_scale = 1;  // Scale factor (1 = roughly 300mm tall)
 
-// Body dimensions
-hex_radius = 40;        // Outer radius of hexagonal body
-wall_thickness = 3;
-glass_inset = 1.5;
+frame_t = 3;          // Metal frame thickness
+glass_t = 1;          // Glass panel thickness
 
-// Section heights
-cap_height = 15;
-upper_frame_height = 8;
-upper_glass_height = 55;
-mid_band_height = 8;
-lower_glass_height = 45;
-lower_frame_height = 8;
-base_height = 12;
-finial_height = 20;
+// Tier dimensions [width, depth, height] — largest on top, smallest at bottom
+tier1_w = 70;         // Top tier width
+tier1_d = 50;         // Top tier depth
+tier1_h = 50;         // Top tier height
 
-// Bracket dimensions
-bracket_length = 120;
-bracket_width = 12;
-bracket_thickness = 6;
-bracket_curve_radius = 60;
+tier2_w = 55;         // Middle tier width
+tier2_d = 40;         // Middle tier depth
+tier2_h = 45;         // Middle tier height
 
-// Wall plate
-plate_width = 50;
-plate_height = 80;
-plate_depth = 8;
+tier3_w = 35;         // Bottom tier width
+tier3_d = 28;         // Bottom tier depth
+tier3_h = 25;         // Bottom tier height
+
+band_h = 5;           // Height of frame band between tiers
+roof_h = 20;          // Barrel vault roof height
+
+// Bracket
+bracket_arm = 100;    // Horizontal reach
+bracket_rod = 4;      // Rod diameter
+chain_len = 30;       // Chain length
 
 // ─── Modules ───
 
-module hexagonal_prism(radius, height, center=true) {
-    cylinder(r=radius, h=height, center=center, $fn=6);
-}
-
-module hexagonal_tube(outer_r, inner_r, height) {
+// Solid box frame (outer shell minus inner cavity)
+module box_frame(w, d, h) {
     difference() {
-        hexagonal_prism(outer_r, height, center=false);
-        translate([0, 0, -0.1])
-            hexagonal_prism(inner_r, height + 0.2, center=false);
+        cube([w, d, h], center=true);
+        cube([w - frame_t*2, d - frame_t*2, h + 1], center=true);
     }
 }
 
-// Roof cap — pyramid top
-module roof_cap() {
-    // Pyramid
-    cylinder(r1=hex_radius + 5, r2=3, h=cap_height + 15, $fn=6);
-    // Lip overhang
-    translate([0, 0, -3])
-        hexagonal_prism(hex_radius + 8, 3, center=false);
-}
+// Glass panel with rectangular grid pattern (mullions)
+module glass_panel_with_grid(panel_w, panel_h, cols, rows) {
+    // Base glass panel
+    color([0.9, 0.9, 0.85, 0.6])
+        cube([glass_t, panel_w, panel_h], center=true);
 
-// Decorative finial on top
-module finial() {
-    // Spike
-    cylinder(r1=4, r2=1.5, h=finial_height, $fn=12);
-    // Ball
-    translate([0, 0, 5])
-        sphere(r=4, $fn=16);
-}
-
-// Frame band — solid hexagonal ring
-module frame_band(height, radius=hex_radius) {
-    hexagonal_tube(radius + 1, radius - wall_thickness, height);
-}
-
-// Glass section — hexagonal tube with cutouts for glass panels
-module glass_section(height, radius=hex_radius) {
-    difference() {
-        hexagonal_tube(radius, radius - wall_thickness, height);
-
-        // Cut glass panel openings on each face
-        for (i = [0:5]) {
-            rotate([0, 0, i * 60 + 30])
-                translate([radius - wall_thickness/2, 0, height/2])
-                    cube([wall_thickness + 2,
-                          radius * 0.75,
-                          height - 10],
-                         center=true);
+    // Horizontal mullions
+    mullion_t = 2;
+    for (r = [0:rows]) {
+        y_pos = -panel_h/2 + r * (panel_h / rows);
+        color([0.15, 0.12, 0.1])
+            cube([mullion_t + 0.5, panel_w, mullion_t], center=true);
+        if (r < rows) {
+            // nothing — just boundary bars
         }
     }
 
-    // Thin glass panels (translucent)
-    %for (i = [0:5]) {
-        rotate([0, 0, i * 60 + 30])
-            translate([radius - glass_inset, 0, height/2])
-                cube([0.8,
-                      radius * 0.72,
-                      height - 12],
-                     center=true);
+    // Vertical mullions
+    for (c = [0:cols]) {
+        x_pos = -panel_w/2 + c * (panel_w / cols);
+        color([0.15, 0.12, 0.1])
+            translate([0, x_pos, 0])
+                cube([mullion_t + 0.5, mullion_t, panel_h], center=true);
+    }
+
+    // Horizontal mullions (cross bars)
+    for (r = [0:rows]) {
+        z_pos = -panel_h/2 + r * (panel_h / rows);
+        color([0.15, 0.12, 0.1])
+            translate([0, 0, z_pos])
+                cube([mullion_t + 0.5, panel_w, mullion_t], center=true);
     }
 }
 
-// Base plate under the lantern body
-module base_plate() {
-    // Tapered base
-    cylinder(r1=hex_radius * 0.6, r2=hex_radius + 2, h=base_height, $fn=6);
-    // Bottom cap
-    translate([0, 0, -5])
-        cylinder(r1=4, r2=hex_radius * 0.5, h=5, $fn=6);
-    // Bottom finial
-    translate([0, 0, -15])
-        cylinder(r1=2, r2=4, h=10, $fn=12);
+// A complete tier: frame + 4 glass panels with grid
+module tier(w, d, h, cols, rows) {
+    // Dark metal frame
+    color([0.15, 0.12, 0.1])
+        box_frame(w, d, h);
+
+    // Top and bottom plates
+    color([0.15, 0.12, 0.1]) {
+        translate([0, 0, h/2 - frame_t/2])
+            cube([w, d, frame_t], center=true);
+        translate([0, 0, -h/2 + frame_t/2])
+            cube([w, d, frame_t], center=true);
+    }
+
+    glass_w_front = w - frame_t * 3;
+    glass_w_side = d - frame_t * 3;
+    glass_h = h - frame_t * 3;
+
+    // Front and back panels
+    for (sign = [-1, 1]) {
+        translate([0, sign * d/2, 0])
+            rotate([0, 0, 0])
+                glass_panel_with_grid(glass_w_front, glass_h, cols, rows);
+    }
+
+    // Left and right panels
+    for (sign = [-1, 1]) {
+        translate([sign * w/2, 0, 0])
+            rotate([0, 0, 90])
+                glass_panel_with_grid(glass_w_side, glass_h, cols, rows);
+    }
 }
 
-// Decorative scroll bracket
-module bracket() {
-    // Main horizontal arm
-    translate([0, 0, 0])
-    rotate([0, 90, 0]) {
-        // Curved arm using hull between spheres
-        for (t = [0:5:85]) {
-            hull() {
-                angle1 = t;
-                angle2 = t + 5;
-                translate([bracket_curve_radius * sin(angle1),
-                           0,
-                           bracket_curve_radius * (1 - cos(angle1))])
-                    sphere(r=bracket_thickness/2, $fn=8);
-                translate([bracket_curve_radius * sin(angle2),
-                           0,
-                           bracket_curve_radius * (1 - cos(angle2))])
-                    sphere(r=bracket_thickness/2, $fn=8);
-            }
+// Band between tiers
+module frame_band(w, d) {
+    color([0.15, 0.12, 0.1])
+        cube([w + 4, d + 4, band_h], center=true);
+}
+
+// Barrel vault roof (half-cylinder)
+module barrel_roof(w, d) {
+    color([0.15, 0.12, 0.1]) {
+        // Half cylinder running along the width
+        intersection() {
+            translate([0, 0, 0])
+                rotate([0, 90, 0])
+                    cylinder(r=d/2 + 3, h=w + 6, center=true, $fn=40);
+            translate([0, 0, roof_h/2])
+                cube([w + 8, d + 8, roof_h + 2], center=true);
         }
-    }
 
-    // Decorative scroll at the bottom
-    translate([bracket_curve_radius - 10, 0, -15])
-    rotate([0, 90, 0]) {
-        for (t = [0:5:180]) {
-            scroll_r = 15;
-            hull() {
-                translate([scroll_r * sin(t), 0, scroll_r * cos(t)])
-                    sphere(r=2.5, $fn=8);
-                translate([scroll_r * sin(t+5), 0, scroll_r * cos(t+5)])
-                    sphere(r=2.5, $fn=8);
-            }
-        }
-    }
-
-    // Upper support strut
-    translate([10, 0, 30])
-    rotate([0, -35, 0])
-        cylinder(r=bracket_thickness/2.5, h=70, $fn=8);
-}
-
-// Wall mounting plate
-module wall_plate() {
-    difference() {
-        // Main plate
-        cube([plate_depth, plate_width, plate_height], center=true);
-        // Mounting holes
-        for (dy = [-15, 15]) {
-            for (dz = [-25, 25]) {
-                translate([0, dy, dz])
+        // Flat cap on the ends
+        for (sign = [-1, 1]) {
+            translate([sign * (w/2 + 1), 0, 0])
+                intersection() {
                     rotate([0, 90, 0])
-                        cylinder(r=3, h=plate_depth + 2, center=true, $fn=12);
+                        cylinder(r=d/2 + 2, h=3, center=true, $fn=40);
+                    translate([0, 0, roof_h/2])
+                        cube([5, d + 6, roof_h], center=true);
+                }
+        }
+
+        // Ridge bar on top
+        translate([0, 0, d/2 + 2])
+            cube([w + 6, 3, 3], center=true);
+    }
+
+    // Glass end panels (arched)
+    for (sign = [-1, 1]) {
+        color([0.9, 0.9, 0.85, 0.4])
+        translate([sign * (w/2), 0, 0])
+            intersection() {
+                rotate([0, 90, 0])
+                    cylinder(r=d/2, h=glass_t, center=true, $fn=40);
+                translate([0, 0, roof_h/2])
+                    cube([glass_t + 1, d, roof_h], center=true);
+            }
+    }
+
+    // Front/back glass on roof
+    for (sign = [-1, 1]) {
+        color([0.9, 0.9, 0.85, 0.4])
+        translate([0, sign * (d/2), 0])
+            intersection() {
+                cube([w, glass_t, roof_h * 2], center=true);
+                translate([0, 0, 0])
+                    rotate([0, 90, 0])
+                        cylinder(r=d/2, h=w, center=true, $fn=40);
+                translate([0, 0, roof_h/2])
+                    cube([w + 1, glass_t + 1, roof_h + 1], center=true);
+            }
+    }
+}
+
+// Chain link
+module chain_link(h) {
+    color([0.2, 0.18, 0.15]) {
+        links = floor(h / 8);
+        for (i = [0:links-1]) {
+            translate([0, 0, -i * 8]) {
+                if (i % 2 == 0) {
+                    difference() {
+                        cube([3, 6, 8], center=true);
+                        cube([1.5, 4, 6], center=true);
+                    }
+                } else {
+                    difference() {
+                        cube([6, 3, 8], center=true);
+                        cube([4, 1.5, 6], center=true);
+                    }
+                }
             }
         }
     }
 }
 
-// ─── Assembly ───
+// Wall bracket with scroll
+module wall_bracket() {
+    color([0.15, 0.12, 0.1]) {
+        // Wall plate
+        translate([-bracket_arm, 0, 0])
+            cube([8, 30, 50], center=true);
 
-module lantern_body() {
-    z = 0;
+        // Horizontal arm
+        translate([-bracket_arm/2, 0, 20])
+            rotate([0, 5, 0])
+                cube([bracket_arm, bracket_rod, bracket_rod], center=true);
 
-    // Base
-    translate([0, 0, z])
-        base_plate();
+        // Diagonal support
+        translate([-bracket_arm * 0.7, 0, 10])
+            rotate([0, 35, 0])
+                cube([bracket_arm * 0.5, bracket_rod, bracket_rod], center=true);
 
-    // Lower frame band
-    translate([0, 0, z + base_height])
-        frame_band(lower_frame_height);
+        // Decorative scroll (circle at the end)
+        translate([-bracket_arm * 0.3, 0, 15]) {
+            difference() {
+                cylinder(r=12, h=bracket_rod, center=true, $fn=30);
+                cylinder(r=9, h=bracket_rod + 1, center=true, $fn=30);
+            }
+        }
 
-    // Lower glass section
-    translate([0, 0, z + base_height + lower_frame_height])
-        glass_section(lower_glass_height);
-
-    // Mid band
-    translate([0, 0, z + base_height + lower_frame_height + lower_glass_height])
-        frame_band(mid_band_height, hex_radius + 2);
-
-    // Upper glass section
-    translate([0, 0, z + base_height + lower_frame_height + lower_glass_height + mid_band_height])
-        glass_section(upper_glass_height, hex_radius);
-
-    // Upper frame band
-    translate([0, 0, z + base_height + lower_frame_height + lower_glass_height +
-               mid_band_height + upper_glass_height])
-        frame_band(upper_frame_height);
-
-    // Roof cap
-    total_body = base_height + lower_frame_height + lower_glass_height +
-                 mid_band_height + upper_glass_height + upper_frame_height;
-    translate([0, 0, z + total_body])
-        roof_cap();
-
-    // Top finial
-    translate([0, 0, z + total_body + cap_height + 15])
-        finial();
+        // Hook at end for chain
+        translate([5, 0, 22])
+            difference() {
+                cylinder(r=6, h=bracket_rod, center=true, $fn=20);
+                cylinder(r=4, h=bracket_rod + 1, center=true, $fn=20);
+                translate([0, -6, 0])
+                    cube([14, 6, bracket_rod + 2], center=true);
+            }
+    }
 }
 
-module full_lantern() {
-    total_body_height = base_height + lower_frame_height + lower_glass_height +
-                        mid_band_height + upper_glass_height + upper_frame_height;
-    lantern_center_z = total_body_height / 2 + base_height;
+// ─── Full Assembly ───
 
-    // Wall plate
-    translate([-bracket_curve_radius - plate_depth/2 + 5, 0, lantern_center_z + 20])
-        wall_plate();
+module lantern() {
+    // Tier positions (stacked bottom to top)
+    z_tier3 = 0;
+    z_band2 = z_tier3 + tier3_h/2 + band_h/2;
+    z_tier2 = z_band2 + band_h/2 + tier2_h/2;
+    z_band1 = z_tier2 + tier2_h/2 + band_h/2;
+    z_tier1 = z_band1 + band_h/2 + tier1_h/2;
+    z_roof  = z_tier1 + tier1_h/2;
 
-    // Bracket arm
-    translate([-bracket_curve_radius + 10, 0, lantern_center_z + 50])
-        bracket();
+    // Bottom tier — 2 panes, 1 row
+    translate([0, 0, z_tier3])
+        tier(tier3_w, tier3_d, tier3_h, 2, 1);
 
-    // Lantern body
-    lantern_body();
+    // Band between bottom and middle
+    translate([0, 0, z_band2])
+        frame_band(tier3_w, tier3_d);
+
+    // Middle tier — 2 panes, 2 rows
+    translate([0, 0, z_tier2])
+        tier(tier2_w, tier2_d, tier2_h, 2, 2);
+
+    // Band between middle and top
+    translate([0, 0, z_band1])
+        frame_band(tier2_w, tier2_d);
+
+    // Top tier — 3 panes, 2 rows
+    translate([0, 0, z_tier1])
+        tier(tier1_w, tier1_d, tier1_h, 3, 2);
+
+    // Barrel vault roof
+    translate([0, 0, z_roof])
+        barrel_roof(tier1_w, tier1_d);
+
+    // Chain
+    translate([0, 0, z_roof + roof_h])
+        chain_link(chain_len);
+
+    // Wall bracket
+    translate([0, 0, z_roof + roof_h + chain_len])
+        wall_bracket();
+
+    // Bottom cap
+    color([0.15, 0.12, 0.1])
+    translate([0, 0, z_tier3 - tier3_h/2 - 3])
+        cube([tier3_w * 0.7, tier3_d * 0.7, 4], center=true);
 }
 
 // ─── Render ───
 
-scale([lantern_scale, lantern_scale, lantern_scale])
-    full_lantern();
+lantern();
