@@ -127,16 +127,10 @@ module barrel_roof(w, d) {
 // ─── Side flap/wing that sticks out from sides of top tier ───
 
 module side_flaps(w, d) {
-    color([0.15, 0.12, 0.1]) {
-        // Left/right flaps
-        for (sx = [-1, 1])
-            translate([sx * (w/2 + flap_w/2), 0, 0])
-                cube([flap_w, flap_d, flap_t], center=true);
-        // Front/back flaps
-        for (sy = [-1, 1])
-            translate([0, sy * (d/2 + flap_w/2), 0])
-                cube([flap_d, flap_w, flap_t], center=true);
-    }
+    color([0.15, 0.12, 0.1])
+    for (sy = [-1, 1])
+        translate([0, sy * (d/2 + flap_w/2), 0])
+            cube([flap_d, flap_w, flap_t], center=true);
 }
 
 // ─── Chain ───
