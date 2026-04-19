@@ -16,8 +16,7 @@ bot_w = 32;  bot_d = 28;  bot_h = 18;    // smallest
 roof_r = 28;        // Covers full depth of top tier (top_d/2 = 26)
 
 // Side flap/wing on top tier
-flap_w = 14;        // How far flap extends beyond top tier sides
-flap_d = 38;        // Depth of flap
+flap_w = 10;        // How far flap extends outward from tier face
 flap_t = 2.5;       // Thickness
 
 chain_h = 25;
@@ -130,7 +129,7 @@ module side_flaps(w, d) {
     color([0.15, 0.12, 0.1])
     for (sy = [-1, 1])
         translate([0, sy * (d/2 + flap_w/2), 0])
-            cube([flap_d, flap_w, flap_t], center=true);
+            cube([w + 4, flap_w, flap_t], center=true);
 }
 
 // ─── Chain ───
