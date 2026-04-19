@@ -14,7 +14,7 @@ mid_w = 52;   mid_d = 40;   mid_h = 38;
 bot_w = 32;   bot_d = 26;   bot_h = 16;   // small
 
 band = 4;
-roof_r = 22;        // Tighter barrel vault, closer to top tier width
+roof_r = 29;        // Covers full depth of top tier (top_d/2 ≈ 27.5)
 
 chain_h = 12;       // Short chain
 bracket_reach = 80;
@@ -140,19 +140,6 @@ module barrel_roof(w, d) {
                 }
     }
 
-    // Front/back arch glass — thin flat panels flush with the vault
-    for (sy = [-1, 1])
-        color([0.92, 0.9, 0.85])
-        translate([0, sy * (d/2), 0])
-            intersection() {
-                rotate([0, 90, 0])
-                    difference() {
-                        cylinder(r=roof_r - frame, h=w - frame*2, center=true);
-                        translate([0, 0, -roof_r])
-                            cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
-                    }
-                cube([w, 1.2, roof_r * 2], center=true);
-            }
 }
 
 // ─── Short chain ───
