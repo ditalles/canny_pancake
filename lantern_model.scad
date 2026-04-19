@@ -23,8 +23,8 @@ top_w = 72;  top_d = 52;  top_h = 32;
 mid_w = 50;  mid_d = 40;  mid_h = 24;
 bot_w = 32;  bot_d = 28;  bot_h = 18;
 
-// Barrel vault roof
-roof_r = 28;
+// Barrel vault roof (shallow — fits within top tier footprint)
+roof_r = 22;
 
 // Front/back flaps on top tier
 flap_ext = 10;
@@ -127,26 +127,26 @@ module body() {
 
 module roof() {
     color([0.15, 0.12, 0.1]) {
-        // Base plate
+        // Base plate — sits flat ABOVE the top tier, not overlapping it
         translate([0, 0, 0])
             cube([top_w + 4, top_d + 4, frame], center=true);
 
-        // Snap-fit groove (female part — slot in the bottom of base plate)
-        // Achieved by the base plate being slightly larger than the snap rim
+        // Half-cylinder vault — sits ON TOP of base plate, centered at top of base plate
+        // Top half only (top_r radius, starts at z = frame/2 upward)
+        translate([0, 0, frame/2])
+            difference() {
+                rotate([0, 90, 0])
+                    cylinder(r=roof_r, h=top_w + 4, center=true);
+                rotate([0, 90, 0])
+                    cylinder(r=roof_r - wall, h=top_w + 6, center=true);
+                // Cut everything below z=0 local (below base plate top)
+                translate([0, 0, -roof_r])
+                    cube([top_w + 10, roof_r * 3, roof_r * 2], center=true);
+            }
 
-        // Half-cylinder vault
-        difference() {
-            rotate([0, 90, 0])
-                cylinder(r=roof_r, h=top_w + 4, center=true);
-            rotate([0, 90, 0])
-                cylinder(r=roof_r - wall, h=top_w + 6, center=true);
-            translate([0, 0, -roof_r])
-                cube([top_w + 10, roof_r * 3, roof_r * 2], center=true);
-        }
-
-        // End caps (solid semicircles)
+        // End caps (solid semicircles, sized to match the smaller vault)
         for (sx = [-1, 1])
-            translate([sx * (top_w/2 + 1.5), 0, 0])
+            translate([sx * (top_w/2 + 1.5), 0, frame/2])
             rotate([0, 90, 0])
                 difference() {
                     cylinder(r=roof_r, h=frame, center=true);
@@ -154,13 +154,13 @@ module roof() {
                         cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
                 }
 
-        // Front/back flaps
+        // Front/back flaps — on the base plate, outside the top tier footprint
         for (sy = [-1, 1])
-            translate([0, sy * (top_d/2 + flap_ext/2), -frame/2])
+            translate([0, sy * (top_d/2 + 2 + flap_ext/2), 0])
                 cube([top_w + 4, flap_ext, flap_t], center=true);
 
         // Hanging loop on top
-        translate([0, 0, roof_r + 2])
+        translate([0, 0, frame/2 + roof_r + 2])
             rotate([90, 0, 0])
                 difference() {
                     cylinder(r=5, h=4, center=true);
