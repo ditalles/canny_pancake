@@ -140,17 +140,19 @@ module barrel_roof(w, d) {
                 }
     }
 
-    // Front/back arch glass
+    // Front/back arch glass — thin flat panels flush with the vault
     for (sy = [-1, 1])
         color([0.92, 0.9, 0.85])
         translate([0, sy * (d/2), 0])
-            rotate([0, 90, 0])
-                difference() {
-                    cylinder(r=roof_r - frame - 0.5, h=w - frame*2, center=true);
-                    cylinder(r=roof_r - frame - 1.5, h=w - frame*2 + 1, center=true);
-                    translate([0, 0, -roof_r])
-                        cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
-                }
+            intersection() {
+                rotate([0, 90, 0])
+                    difference() {
+                        cylinder(r=roof_r - frame, h=w - frame*2, center=true);
+                        translate([0, 0, -roof_r])
+                            cube([roof_r * 3, roof_r * 3, roof_r * 2], center=true);
+                    }
+                cube([w, 1.2, roof_r * 2], center=true);
+            }
 }
 
 // ─── Short chain ───
