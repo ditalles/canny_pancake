@@ -52,11 +52,9 @@ z2 = z1 + bot_h;                   // bot tier top / sep1 start
 z3 = z2 + sep_t;                   // sep1 top / mid tier start
 z4 = z3 + mid_h;                   // mid tier top / sep2 start
 z5 = z4 + sep_t;                   // sep2 top / top tier start
-z6 = z5 + top_h;                   // top tier top / ceiling start
-z7 = z6 + cap_t;                   // ceiling top / snap rim start
-z8 = z7 + snap_lip;                // snap rim top
+z6 = z5 + top_h;                   // top tier top / snap rim start
 
-body_total_h = z8;
+body_total_h = z6 + snap_lip;
 
 // ─── Window cutout helper (used inside difference) ───
 
@@ -120,60 +118,54 @@ module body() {
     difference() {
         // === Outer solid step-pyramid ===
         union() {
-            // Floor plate (bot dimensions)
+            // Floor plate (solid, closes bottom of lantern)
             translate([0, 0, cap_t/2])
                 cube([bot_w, bot_d, cap_t], center=true);
             // Bot tier solid block
             translate([0, 0, z1 + bot_h/2])
                 cube([bot_w, bot_d, bot_h], center=true);
-            // Separator plate 1 (mid dimensions)
+            // Separator ring 1 (mid dimensions — becomes ring after hollow cut)
             translate([0, 0, z2 + sep_t/2])
                 cube([mid_w, mid_d, sep_t], center=true);
             // Mid tier solid block
             translate([0, 0, z3 + mid_h/2])
                 cube([mid_w, mid_d, mid_h], center=true);
-            // Separator plate 2 (top dimensions)
+            // Separator ring 2 (top dimensions — becomes ring after hollow cut)
             translate([0, 0, z4 + sep_t/2])
                 cube([top_w, top_d, sep_t], center=true);
             // Top tier solid block
             translate([0, 0, z5 + top_h/2])
                 cube([top_w, top_d, top_h], center=true);
-            // Ceiling plate (closes top tier)
-            translate([0, 0, z6 + cap_t/2])
-                cube([top_w, top_d, cap_t], center=true);
-            // Snap-fit rim
-            translate([0, 0, z7 + snap_lip/2])
+            // Snap-fit rim (no ceiling — center stays open)
+            translate([0, 0, z6 + snap_lip/2])
                 cube([top_w - 1.5, top_d - 1.5, snap_lip], center=true);
         }
 
-        // === Hollow out tier interiors (precisely bounded) ===
-        // Bot tier cavity — between floor and sep1 only
-        translate([0, 0, z1 + bot_h/2])
-            cube([bot_w - wall*2, bot_d - wall*2, bot_h], center=true);
-        // Mid tier cavity — between sep1 and sep2 only
-        translate([0, 0, z3 + mid_h/2])
-            cube([mid_w - wall*2, mid_d - wall*2, mid_h], center=true);
-        // Top tier cavity — between sep2 and ceiling only
-        translate([0, 0, z5 + top_h/2])
-            cube([top_w - wall*2, top_d - wall*2, top_h], center=true);
+        // === Continuous hollows (center free, sep plates become rings) ===
+        // Bot tier + through sep ring 1 (at bot inner dims)
+        translate([0, 0, z1 + (bot_h + sep_t)/2])
+            cube([bot_w - wall*2, bot_d - wall*2, bot_h + sep_t], center=true);
+        // Mid tier + through sep ring 2 (at mid inner dims)
+        translate([0, 0, z3 + (mid_h + sep_t)/2])
+            cube([mid_w - wall*2, mid_d - wall*2, mid_h + sep_t], center=true);
+        // Top tier (open at top, no ceiling)
+        translate([0, 0, z5 + (top_h + 1)/2])
+            cube([top_w - wall*2, top_d - wall*2, top_h + 1], center=true);
         // Snap rim inner hollow
-        translate([0, 0, z7 + snap_lip/2])
+        translate([0, 0, z6 + snap_lip/2])
             cube([top_w - 1.5 - wall*2, top_d - 1.5 - wall*2, snap_lip + 1],
                  center=true);
 
-        // === Window cutouts (through walls only, not plates) ===
-        // Bot tier windows
+        // === Window cutouts ===
         win_cuts_front_back(bot_w, bot_d, bot_h, 1, z1 + bot_h/2);
         win_cuts_left_right(bot_w, bot_d, bot_h, 1, z1 + bot_h/2);
-        // Mid tier windows
         win_cuts_front_back(mid_w, mid_d, mid_h, 2, z3 + mid_h/2);
         win_cuts_left_right(mid_w, mid_d, mid_h, 1, z3 + mid_h/2);
-        // Top tier windows
         win_cuts_front_back(top_w, top_d, top_h, 3, z5 + top_h/2);
         win_cuts_left_right(top_w, top_d, top_h, 2, z5 + top_h/2);
     }
 
-    // === Decorative window frames (positive geometry) ===
+    // === Decorative window frames ===
     win_frames_front_back(bot_w, bot_d, bot_h, 1, z1 + bot_h/2);
     win_frames_left_right(bot_w, bot_d, bot_h, 1, z1 + bot_h/2);
     win_frames_front_back(mid_w, mid_d, mid_h, 2, z3 + mid_h/2);
