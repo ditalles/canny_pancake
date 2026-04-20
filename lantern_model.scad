@@ -24,7 +24,7 @@ mid_w = 50;  mid_d = 40;  mid_h = 22;
 bot_w = 32;  bot_d = 26;  bot_h = 16;
 
 cap_t = 2.0;
-tier_gap = 1.5;
+sep_t = 2.5;         // Separator plate thickness between tiers (solid floor/ceiling)
 
 // Barrel vault roof
 roof_r = top_d / 2;
@@ -47,7 +47,7 @@ snap_clearance = 0.25;
 base_t = 2.0;
 
 // Total body height (for print flip calculation)
-body_total_h = bot_h + tier_gap + mid_h + tier_gap + top_h + snap_lip;
+body_total_h = cap_t + bot_h + sep_t + mid_h + sep_t + top_h + snap_lip;
 
 // ─── Single tier: solid shell with window cutouts ───
 
@@ -106,37 +106,34 @@ module tier_shell(w, d, h, cols_front, cols_side) {
 // ─── PART 1: Body — 3 stacked tiers with solid tapered transitions ───
 
 module body() {
-    // Bottom tier — bottom face at z=0
-    translate([0, 0, bot_h/2])
+    // Solid floor plate at the very bottom (closes bottom of lantern)
+    translate([0, 0, cap_t/2])
+        cube([bot_w, bot_d, cap_t], center=true);
+
+    // Bottom tier walls — sits on floor plate
+    z_bot_base = cap_t;
+    translate([0, 0, z_bot_base + bot_h/2])
         tier_shell(bot_w, bot_d, bot_h, 1, 1);
 
-    // Solid floor plate at the very bottom
-    translate([0, 0, cap_t/2])
-        cube([bot_w - wall*2 + 0.1, bot_d - wall*2 + 0.1, cap_t], center=true);
+    // SOLID SEPARATOR PLATE: closes top of bot tier, acts as floor for mid tier
+    // Sized to mid tier (wider) so it creates a visible ledge on all 4 sides
+    z_sep1 = z_bot_base + bot_h;
+    translate([0, 0, z_sep1 + sep_t/2])
+        cube([mid_w, mid_d, sep_t], center=true);
 
-    // Solid tapered transition: bottom → middle (hull = no air gap)
-    hull() {
-        translate([0, 0, bot_h])
-            cube([bot_w, bot_d, 0.01], center=true);
-        translate([0, 0, bot_h + tier_gap])
-            cube([mid_w, mid_d, 0.01], center=true);
-    }
-
-    // Middle tier
-    translate([0, 0, bot_h + tier_gap + mid_h/2])
+    // Middle tier walls — sits on separator plate
+    z_mid_base = z_sep1 + sep_t;
+    translate([0, 0, z_mid_base + mid_h/2])
         tier_shell(mid_w, mid_d, mid_h, 2, 1);
 
-    // Solid tapered transition: middle → top
-    z_mid_top = bot_h + tier_gap + mid_h;
-    hull() {
-        translate([0, 0, z_mid_top])
-            cube([mid_w, mid_d, 0.01], center=true);
-        translate([0, 0, z_mid_top + tier_gap])
-            cube([top_w, top_d, 0.01], center=true);
-    }
+    // SOLID SEPARATOR PLATE: closes top of mid tier, acts as floor for top tier
+    // Sized to top tier for visible ledge
+    z_sep2 = z_mid_base + mid_h;
+    translate([0, 0, z_sep2 + sep_t/2])
+        cube([top_w, top_d, sep_t], center=true);
 
-    // Top tier
-    z_top_base = bot_h + tier_gap + mid_h + tier_gap;
+    // Top tier walls
+    z_top_base = z_sep2 + sep_t;
     translate([0, 0, z_top_base + top_h/2])
         tier_shell(top_w, top_d, top_h, 3, 2);
 
