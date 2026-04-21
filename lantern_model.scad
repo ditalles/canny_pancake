@@ -2,13 +2,13 @@
 //
 // PART 1 (body): Solid stepped pyramid with 3 tiers, fully closed chambers
 //                Exported UPSIDE DOWN — largest tier on build plate, no overhangs
-// PART 2 (roof): Hip roof with ridge — all faces ≤ 45° overhang, no supports
+// PART 2 (roof): Barrel vault with closed ends, flaps, and hanging loop
 //                Exported base-plate-down
 //
 // HOW TO EXPORT STLs:
 //   1. Set `part = "body"` → Render (F6) → Export STL (pre-oriented for printing)
 //   2. Set `part = "roof"` → Render (F6) → Export STL (pre-oriented for printing)
-//   3. Slice with 0.2mm layer, 2-3 perimeters, 15-20% infill, NO SUPPORTS NEEDED
+//   3. Slice with 0.2mm layer, 2-3 perimeters, 15-20% infill, no supports
 
 $fn = 60;
 
@@ -26,11 +26,9 @@ bot_w = 32;  bot_d = 26;  bot_h = 16;
 cap_t = 2.0;
 sep_t = 2.5;
 
-// Hip roof (all slopes under 45° overhang — no supports needed)
-roof_base_w = top_w + 4;
-roof_base_d = top_d + 4;
-roof_h = roof_base_d / 2 + 2;
-roof_ridge = roof_base_w - roof_base_d;
+// Barrel vault roof
+roof_r = top_d / 2;
+roof_len = top_w + 4;
 
 // Flaps (front/back)
 flap_ext = 10;
@@ -183,44 +181,43 @@ module body_print() {
             body();
 }
 
-// ─── PART 2: Roof — hip roof with ridge, support-free ───
+// ─── PART 2: Roof — barrel vault with closed ends ───
 
 module roof() {
     // Base plate
     translate([0, 0, base_t/2])
-        cube([roof_base_w, roof_base_d, base_t], center=true);
+        cube([top_w + 4, top_d + 4, base_t], center=true);
 
-    // Hip roof shell — 4 slopes, all under 45° overhang
+    // Barrel vault — hollow half-cylinder with closed ends
     translate([0, 0, base_t])
         difference() {
-            hull() {
-                cube([roof_base_w, roof_base_d, 0.01], center=true);
-                translate([0, 0, roof_h])
-                    cube([roof_ridge, 0.01, 0.01], center=true);
+            union() {
+                rotate([0, 90, 0])
+                    cylinder(r=roof_r, h=roof_len, center=true);
+                for (sx = [-1, 1])
+                    translate([sx * roof_len/2, 0, 0])
+                        rotate([0, 90, 0])
+                            cylinder(r=roof_r, h=wall, center=true);
             }
-            hull() {
-                cube([roof_base_w - wall*2, roof_base_d - wall*2, 0.01],
-                     center=true);
-                translate([0, 0, roof_h - wall])
-                    cube([max(roof_ridge - wall*2, 0.01), 0.01, 0.01],
-                         center=true);
-            }
+            rotate([0, 90, 0])
+                cylinder(r=roof_r - wall, h=roof_len - wall*2 - 1, center=true);
+            // Cut bottom half
+            translate([0, 0, -roof_r])
+                cube([roof_len + 20, roof_r * 3, roof_r * 2], center=true);
         }
 
     // Flaps — front/back
     for (sy = [-1, 1])
-        translate([0, sy * (roof_base_d/2 + flap_ext/2), flap_t/2])
-            cube([roof_base_w, flap_ext, flap_t], center=true);
+        translate([0, sy * (top_d/2 + 2 + flap_ext/2), flap_t/2])
+            cube([top_w + 4, flap_ext, flap_t], center=true);
 
-    // Hanging tab with hole at ridge center
-    translate([0, 0, base_t + roof_h])
-        difference() {
-            translate([0, 0, 7])
-                cube([10, 4, 14], center=true);
-            translate([0, 0, 8])
-                rotate([90, 0, 0])
-                    cylinder(r=3, h=5, center=true);
-        }
+    // Hanging loop on top of ridge
+    translate([0, 0, base_t + roof_r + 3])
+        rotate([90, 0, 0])
+            difference() {
+                cylinder(r=5, h=4, center=true);
+                cylinder(r=3, h=5, center=true);
+            }
 }
 
 module roof_with_groove() {
