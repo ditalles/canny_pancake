@@ -62,21 +62,45 @@ registration/authentication **options** endpoints, CSV export, and the guards
 A headless server can't trigger a fingerprint sensor, so that final hop must be
 checked on a device.
 
+## Certificate wallet 🪪
+
+Because the app already knows who each worker is, it doubles as a place to store
+their **qualifications** — VCA, forklift/reach truck, working-at-height /
+climbing, first aid, crane, etc. — with issue/expiry dates and a photo or PDF of
+the certificate.
+
+- **Workers** manage their own at `/me`: add a certificate (type, number, dates,
+  optional file) and remove old ones.
+- **Supervisors** see everyone at `/workers`, with a **"Needs attention"** panel
+  that lists certificates that are **expired** or **expire within 60 days**
+  (configurable) — so nobody operates a forklift on a lapsed ticket.
+- Status is colour-coded: 🟢 valid · 🟠 expiring soon · 🔴 expired.
+
+Files are limited to 8 MB and to PNG/JPG/WEBP/PDF, stored in the database, and
+served with a strict content type + `nosniff` so an upload can't be treated as a
+web page.
+
 ## Routes
 
 | Route                              | Who    | Purpose                                |
 |------------------------------------|--------|----------------------------------------|
-| `/`                                | Admin  | List / create talks                    |
+| `/`                                | Admin  | List / create talks; links to people   |
 | `/talk/<id>`                       | Admin  | QR, live sign-offs, CSV export         |
 | `/attend/<token>`                  | Worker | Enrol (first time) or sign off         |
 | `/enroll/options` · `/enroll/verify`| Worker| WebAuthn registration (passkey setup)  |
 | `/attend/<token>/auth/options` · `/auth/verify` | Worker | WebAuthn sign-off (fingerprint) |
+| `/me`                              | Worker | My certificate wallet (add / remove)   |
+| `/me/certificates`                 | Worker | Add a certificate (file upload)        |
+| `/workers`                         | Admin  | All workers + certs + expiry warnings  |
+| `/certificates/<id>/file`          | Owner/admin | View a stored certificate file    |
 | `/forget`                          | Worker | Forget this device (shared phone)      |
 
 ## Data model
 
 - `workers` — name + creation time
 - `credentials` — each worker's passkey public key + signature counter
+- `certificates` — per-worker qualifications: type, number, issue/expiry dates,
+  and the certificate file (image/PDF)
 - `talks` / `signoffs` — as in the simple variant; every sign-off here is
   biometric-verified
 

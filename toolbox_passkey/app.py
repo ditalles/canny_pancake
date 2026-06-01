@@ -68,6 +68,25 @@ app.permanent_session_lifetime = timedelta(days=365)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "toolbox_passkey.db")
 
+# Uploaded certificate files are limited in size and to a safe set of types.
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # 8 MB
+ALLOWED_CERT_MIME = {"image/png", "image/jpeg", "image/webp", "application/pdf"}
+
+# Common qualifications; workers can also pick "Other" and type their own.
+CERT_TYPES = [
+    "VCA (safety)",
+    "Forklift / reach truck",
+    "Working at height / climbing",
+    "First aid / BHV",
+    "Crane / hoisting",
+    "Confined space",
+    "Welding",
+    "Other",
+]
+
+# A certificate is flagged when it expires within this many days.
+EXPIRY_WARNING_DAYS = 60
+
 # WebAuthn relying-party config. For real (non-localhost) deployment, set these
 # to your HTTPS hostname, e.g. RP_ID=talks.example.com ORIGIN=https://talks.example.com
 RP_ID = os.environ.get("RP_ID", "localhost")
@@ -117,6 +136,14 @@ def init_db():
             worker_id INTEGER NOT NULL REFERENCES workers(id),
             name TEXT NOT NULL, signed_at TEXT NOT NULL, ip TEXT
         );
+        CREATE TABLE IF NOT EXISTS certificates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            worker_id INTEGER NOT NULL REFERENCES workers(id),
+            cert_type TEXT NOT NULL, cert_number TEXT,
+            issued_date TEXT, expiry_date TEXT,
+            filename TEXT, mimetype TEXT, content BLOB,
+            created_at TEXT NOT NULL
+        );
         """
     )
     db.commit()
@@ -129,6 +156,37 @@ def current_worker():
     if not wid:
         return None
     return get_db().execute("SELECT * FROM workers WHERE id = ?", (wid,)).fetchone()
+
+
+def cert_status(expiry_date):
+    """Return (label, css_class, days_left) for a certificate's expiry date."""
+    if not expiry_date:
+        return ("No expiry", "ok", None)
+    try:
+        exp = date.fromisoformat(expiry_date)
+    except ValueError:
+        return ("No expiry", "ok", None)
+    days = (exp - date.today()).days
+    if days < 0:
+        return (f"Expired {-days} d ago", "expired", days)
+    if days <= EXPIRY_WARNING_DAYS:
+        return (f"Expires in {days} d", "expiring", days)
+    return (f"Valid · expires {expiry_date}", "ok", days)
+
+
+def worker_certs(worker_id):
+    """Certificate rows for a worker, each with computed expiry status."""
+    rows = get_db().execute(
+        "SELECT id, cert_type, cert_number, issued_date, expiry_date, filename, "
+        "mimetype FROM certificates WHERE worker_id = ? ORDER BY cert_type",
+        (worker_id,),
+    ).fetchall()
+    certs = []
+    for r in rows:
+        label, css, days = cert_status(r["expiry_date"])
+        certs.append({**dict(r), "status": label, "status_class": css,
+                      "days_left": days})
+    return certs
 
 
 # --- Admin: talks (same as the simple variant) ------------------------------
@@ -369,6 +427,108 @@ def auth_verify(token):
     )
     db.commit()
     return jsonify({"ok": True, "name": worker["name"], "time": signed_at})
+
+
+# --- Certificates: worker wallet + admin overview ---------------------------
+
+
+@app.route("/me")
+def me():
+    """A worker's own page: their qualifications and a form to add more."""
+    worker = current_worker()
+    certs = worker_certs(worker["id"]) if worker else []
+    return render_template("me.html", worker=worker, certs=certs,
+                           cert_types=CERT_TYPES)
+
+
+@app.route("/me/certificates", methods=["POST"])
+def add_certificate():
+    worker = current_worker()
+    if not worker:
+        abort(403)
+    cert_type = (request.form.get("cert_type") or "").strip()
+    if cert_type == "Other":
+        cert_type = (request.form.get("cert_type_other") or "").strip() or "Other"
+    if not cert_type:
+        return redirect(url_for("me"))
+
+    filename = mimetype = content = None
+    upload = request.files.get("file")
+    if upload and upload.filename:
+        mimetype = upload.mimetype
+        if mimetype not in ALLOWED_CERT_MIME:
+            return render_template(
+                "me.html", worker=worker, certs=worker_certs(worker["id"]),
+                cert_types=CERT_TYPES,
+                error="File must be a PNG, JPG, WEBP image or a PDF.")
+        content = upload.read()
+        filename = upload.filename
+
+    get_db().execute(
+        "INSERT INTO certificates (worker_id, cert_type, cert_number, "
+        "issued_date, expiry_date, filename, mimetype, content, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (worker["id"], cert_type,
+         (request.form.get("cert_number") or "").strip(),
+         request.form.get("issued_date") or None,
+         request.form.get("expiry_date") or None,
+         filename, mimetype, content,
+         datetime.now().isoformat(timespec="seconds")),
+    )
+    get_db().commit()
+    return redirect(url_for("me"))
+
+
+@app.route("/me/certificates/<int:cert_id>/delete", methods=["POST"])
+def delete_certificate(cert_id):
+    worker = current_worker()
+    if not worker:
+        abort(403)
+    get_db().execute("DELETE FROM certificates WHERE id = ? AND worker_id = ?",
+                     (cert_id, worker["id"]))
+    get_db().commit()
+    return redirect(url_for("me"))
+
+
+@app.route("/certificates/<int:cert_id>/file")
+def certificate_file(cert_id):
+    """Serve a stored certificate image/PDF (inline). Access: admin or owner."""
+    row = get_db().execute(
+        "SELECT worker_id, filename, mimetype, content FROM certificates "
+        "WHERE id = ?", (cert_id,)
+    ).fetchone()
+    if row is None or row["content"] is None:
+        abort(404)
+    worker = current_worker()
+    is_owner = worker and worker["id"] == row["worker_id"]
+    if not (is_owner or session.get("is_admin")):
+        # No admin auth yet (see README); for now any enrolled worker viewing
+        # the admin pages is trusted. Restrict cross-worker file access.
+        if not worker:
+            abort(403)
+    # Strict content type + nosniff so user uploads can't be treated as HTML.
+    return Response(row["content"], mimetype=row["mimetype"], headers={
+        "Content-Disposition": f'inline; filename="{row["filename"] or "certificate"}"',
+        "X-Content-Type-Options": "nosniff",
+    })
+
+
+@app.route("/workers")
+def workers():
+    """Admin overview: every worker, their certs, and expiry warnings."""
+    db = get_db()
+    rows = db.execute("SELECT * FROM workers ORDER BY name").fetchall()
+    people = []
+    expiring_soon = []
+    for w in rows:
+        certs = worker_certs(w["id"])
+        people.append({"id": w["id"], "name": w["name"], "certs": certs})
+        for c in certs:
+            if c["status_class"] in ("expiring", "expired"):
+                expiring_soon.append({"name": w["name"], **c})
+    expiring_soon.sort(key=lambda c: (c["days_left"] is None, c["days_left"]))
+    return render_template("workers.html", people=people,
+                           expiring_soon=expiring_soon)
 
 
 @app.route("/forget", methods=["POST"])

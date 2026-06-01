@@ -26,7 +26,11 @@
 <body>
 <div class="wrap">
     <h1>🦺 Toolbox Talks <span class="tag">· 🔒 passkey sign-off</span></h1>
-    <p><a class="btn" href="{{ url_for('new_talk') }}">+ New toolbox talk</a></p>
+    <p>
+        <a class="btn" href="{{ url_for('new_talk') }}">+ New toolbox talk</a>
+        <a class="btn" style="background:#6b7280" href="{{ url_for('workers') }}">👷 Workers &amp; certificates</a>
+        <a class="btn" style="background:#16a34a" href="{{ url_for('me') }}">🪪 My certificates</a>
+    </p>
     {% for t in talks %}
         <a class="talk" href="{{ url_for('talk_detail', talk_id=t.id) }}">
             <div class="topic">{{ t.topic }}</div>
