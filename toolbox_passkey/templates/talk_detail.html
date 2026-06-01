@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ talk.topic }} — Toolbox Talk</title>
+    <meta http-equiv="refresh" content="20">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               margin: 0; background: #f3f4f6; color: #111827; }
+        .wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+        h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+        .meta { color: #6b7280; margin-bottom: 1.5rem; }
+        .grid { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start; }
+        .panel { background: #fff; border-radius: 16px; padding: 1.5rem;
+                 box-shadow: 0 10px 30px rgba(0,0,0,.06); flex: 1 1 280px; }
+        h2 { font-size: 1.1rem; margin-top: 0; }
+        .qr { text-align: center; }
+        .qr img { width: 230px; height: 230px; }
+        .points { white-space: pre-wrap; background: #f9fafb; border-radius: 10px;
+                  padding: 1rem; color: #374151; }
+        .count { font-size: 2.5rem; font-weight: 700; color: #2563eb; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: .55rem .5rem; border-bottom: 1px solid #e5e7eb; }
+        th { color: #6b7280; font-size: .78rem; text-transform: uppercase; }
+        .btn { display: inline-block; padding: .55rem 1rem; background: #16a34a;
+               color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; }
+        .ok { color: #16a34a; font-weight: 600; }
+        .muted { color: #6b7280; font-size: .85rem; }
+        a.back { color: #6b7280; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <p><a class="back" href="{{ url_for('index') }}">← All talks</a></p>
+    <h1>{{ talk.topic }}</h1>
+    <div class="meta">{{ talk.talk_date }}{% if talk.presenter %} · {{ talk.presenter }}{% endif %}</div>
+
+    <div class="grid">
+        <div class="panel qr">
+            <h2>Scan to sign</h2>
+            <img src="{{ url_for('talk_qr', talk_id=talk.id) }}" alt="QR code">
+            <p class="muted">Show this on a screen or print it.<br>
+               Workers scan, then confirm with their fingerprint.</p>
+            {% if talk.key_points %}
+                <h2 style="margin-top:1.5rem">Key points</h2>
+                <div class="points">{{ talk.key_points }}</div>
+            {% endif %}
+        </div>
+        <div class="panel">
+            <h2>Sign-offs <span class="muted">🔒 biometric verified</span></h2>
+            <p class="count">{{ signoffs|length }}</p>
+            <a class="btn" href="{{ url_for('export_csv', talk_id=talk.id) }}">⬇ Export CSV</a>
+            <table style="margin-top:1rem">
+                <thead><tr><th>Name</th><th>Verified</th><th>Signed at</th></tr></thead>
+                <tbody>
+                {% for s in signoffs %}
+                    <tr><td>{{ s.name }}</td><td><span class="ok">✓</span></td><td>{{ s.signed_at }}</td></tr>
+                {% else %}
+                    <tr><td colspan="3" class="muted">No one has signed yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p class="muted" style="margin-top:1.5rem">This page auto-refreshes every 20 seconds.</p>
+</div>
+</body>
+</html>

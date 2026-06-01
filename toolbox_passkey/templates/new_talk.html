@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Toolbox Talk</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               margin: 0; background: #f3f4f6; color: #111827; }
+        .wrap { max-width: 560px; margin: 0 auto; padding: 2rem 1rem; }
+        .card { background: #fff; border-radius: 16px; padding: 1.8rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,.06); }
+        h1 { font-size: 1.4rem; margin-top: 0; }
+        label { display: block; font-weight: 600; margin: 1rem 0 .35rem; }
+        input, textarea { width: 100%; box-sizing: border-box; padding: .7rem .9rem;
+               font-size: 1rem; border: 2px solid #d1d5db; border-radius: 10px;
+               font-family: inherit; }
+        textarea { min-height: 120px; resize: vertical; }
+        .btn { margin-top: 1.4rem; width: 100%; padding: .9rem; font-size: 1.05rem;
+               font-weight: 600; color: #fff; background: #2563eb; border: none;
+               border-radius: 10px; cursor: pointer; }
+        .err { background: #fee2e2; color: #991b1b; padding: .8rem; border-radius: 10px; }
+        a.back { color: #6b7280; text-decoration: none; }
+        .hint { color: #6b7280; font-size: .85rem; font-weight: 400; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <p><a class="back" href="{{ url_for('index') }}">← All talks</a></p>
+    <div class="card">
+        <h1>New toolbox talk</h1>
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
+        <form method="POST">
+            <label>Topic *</label>
+            <input type="text" name="topic" placeholder="e.g. Working at height" required autofocus>
+            <label>Presenter</label>
+            <input type="text" name="presenter" placeholder="Who is giving the talk">
+            <label>Date</label>
+            <input type="date" name="talk_date" value="{{ today }}">
+            <label>Key points <span class="hint">(shown to workers before they sign)</span></label>
+            <textarea name="key_points" placeholder="One point per line"></textarea>
+            <button class="btn" type="submit">Create &amp; get QR code</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

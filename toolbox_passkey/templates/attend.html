@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign off — {{ talk.topic }}</title>
+    <style>
+        :root { color-scheme: light dark; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               display: flex; align-items: center; justify-content: center;
+               min-height: 100vh; margin: 0; background: #f3f4f6; padding: 1rem; }
+        .card { background: #fff; border-radius: 16px; padding: 1.8rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,.08); width: 100%; max-width: 400px; }
+        h1 { font-size: 1.35rem; margin: 0 0 .25rem; }
+        .meta { color: #6b7280; font-size: .9rem; margin-bottom: 1rem; }
+        .points { white-space: pre-wrap; background: #f9fafb; border-radius: 10px;
+                  padding: 1rem; color: #374151; font-size: .95rem; margin-bottom: 1.2rem; }
+        input[type=text] { width: 100%; box-sizing: border-box; padding: .85rem 1rem;
+               font-size: 1.1rem; border: 2px solid #d1d5db; border-radius: 10px; margin-bottom: 1rem; }
+        button { width: 100%; padding: .95rem; font-size: 1.1rem; font-weight: 600;
+                 color: #fff; background: #2563eb; border: none; border-radius: 10px;
+                 cursor: pointer; }
+        button:disabled { opacity: .6; }
+        .msg { padding: 1rem; border-radius: 10px; margin: 1rem 0; text-align: center; }
+        .ok { background: #dcfce7; color: #166534; }
+        .warn { background: #fef9c3; color: #854d0e; }
+        .err { background: #fee2e2; color: #991b1b; }
+        .check { font-size: 3rem; text-align: center; }
+        .muted { color: #6b7280; font-size: .85rem; text-align: center; }
+        .link { background: none; color: #6b7280; text-decoration: underline;
+                font-size: .85rem; padding: .5rem; width: auto; display: block; margin: .5rem auto 0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>{{ talk.topic }}</h1>
+    <div class="meta">{{ talk.talk_date }}{% if talk.presenter %} · {{ talk.presenter }}{% endif %}</div>
+    {% if talk.key_points %}<div class="points">{{ talk.key_points }}</div>{% endif %}
+
+    <div id="status"></div>
+
+    {% if already %}
+        <div class="check">👍</div>
+        <div class="msg warn"><strong>{{ worker.name }}</strong> already signed this talk at {{ already }}.</div>
+        <p class="muted">No need to sign again.</p>
+    {% elif worker %}
+        <!-- Device is enrolled: one tap + fingerprint. -->
+        <button id="signBtn">🔒 Sign off as {{ worker.name }}</button>
+        <button class="link" id="notMeBtn">Not {{ worker.name }}? Set up this device again</button>
+    {% else %}
+        <!-- First time on this device: enrol a passkey. -->
+        <p class="muted" style="text-align:left">First time here? Set up once with your fingerprint — after that, signing off is just scan + fingerprint.</p>
+        <input type="text" id="nameInput" placeholder="Your full name" autocomplete="name">
+        <button id="enrollBtn">🔒 Set up with fingerprint</button>
+    {% endif %}
+</div>
+
+<script>
+const TOKEN = {{ talk.token | tojson }};
+const statusEl = document.getElementById('status');
+
+function show(msg, cls) { statusEl.innerHTML = '<div class="msg ' + cls + '">' + msg + '</div>'; }
+
+// --- base64url <-> ArrayBuffer helpers (WebAuthn uses base64url over the wire) ---
+function b64urlToBuf(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = s.length % 4 ? 4 - (s.length % 4) : 0;
+    s += '='.repeat(pad);
+    const bin = atob(s);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return buf.buffer;
+}
+function bufToB64url(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function ensureSupport() {
+    if (!window.PublicKeyCredential || !navigator.credentials) {
+        show('This browser does not support passkeys. Open the link in your phone’s default browser.', 'err');
+        return false;
+    }
+    if (!window.isSecureContext) {
+        show('Passkeys need a secure (https) connection. Ask your admin to enable HTTPS.', 'err');
+        return false;
+    }
+    return true;
+}
+
+// --- Enrolment (one-time) ---
+async function enroll() {
+    if (!ensureSupport()) return;
+    const name = document.getElementById('nameInput').value.trim();
+    if (!name) { show('Please enter your name first.', 'err'); return; }
+    const btn = document.getElementById('enrollBtn');
+    btn.disabled = true; show('Follow your phone’s prompt…', 'warn');
+    try {
+        const opts = await fetch('/enroll/options', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name})
+        }).then(r => r.json());
+        if (opts.error) throw new Error(opts.error);
+
+        opts.challenge = b64urlToBuf(opts.challenge);
+        opts.user.id = b64urlToBuf(opts.user.id);
+        (opts.excludeCredentials || []).forEach(c => c.id = b64urlToBuf(c.id));
+
+        const cred = await navigator.credentials.create({publicKey: opts});
+        const body = {
+            id: cred.id, rawId: bufToB64url(cred.rawId), type: cred.type,
+            response: {
+                clientDataJSON: bufToB64url(cred.response.clientDataJSON),
+                attestationObject: bufToB64url(cred.response.attestationObject),
+            },
+            clientExtensionResults: cred.getClientExtensionResults(),
+            authenticatorAttachment: cred.authenticatorAttachment,
+        };
+        const res = await fetch('/enroll/verify', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        }).then(r => r.json());
+        if (res.error) throw new Error(res.error);
+        show('Set up complete — signing you off…', 'ok');
+        location.reload();  // reload: now enrolled, page shows the sign-off button
+    } catch (e) {
+        btn.disabled = false;
+        show('Set-up failed: ' + (e.message || e), 'err');
+    }
+}
+
+// --- Sign off (returning) ---
+async function signOff() {
+    if (!ensureSupport()) return;
+    const btn = document.getElementById('signBtn');
+    btn.disabled = true; show('Confirm with your fingerprint…', 'warn');
+    try {
+        const opts = await fetch('/attend/' + TOKEN + '/auth/options', {method: 'POST'})
+            .then(r => r.json());
+        if (opts.error) throw new Error(opts.error);
+
+        opts.challenge = b64urlToBuf(opts.challenge);
+        (opts.allowCredentials || []).forEach(c => c.id = b64urlToBuf(c.id));
+
+        const assertion = await navigator.credentials.get({publicKey: opts});
+        const body = {
+            id: assertion.id, rawId: bufToB64url(assertion.rawId), type: assertion.type,
+            response: {
+                clientDataJSON: bufToB64url(assertion.response.clientDataJSON),
+                authenticatorData: bufToB64url(assertion.response.authenticatorData),
+                signature: bufToB64url(assertion.response.signature),
+                userHandle: assertion.response.userHandle ? bufToB64url(assertion.response.userHandle) : null,
+            },
+            clientExtensionResults: assertion.getClientExtensionResults(),
+        };
+        const res = await fetch('/attend/' + TOKEN + '/auth/verify', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        }).then(r => r.json());
+        if (res.error) throw new Error(res.error);
+        if (res.already) {
+            show('👍 ' + res.name + ' already signed at ' + res.time + '.', 'warn');
+        } else {
+            show('✅ ' + res.name + ' signed off at ' + res.time + '. You can close this page.', 'ok');
+        }
+        btn.classList.add('hidden');
+    } catch (e) {
+        btn.disabled = false;
+        show('Sign-off failed: ' + (e.message || e), 'err');
+    }
+}
+
+async function forget() {
+    await fetch('/forget', {method: 'POST'});
+    location.reload();
+}
+
+document.getElementById('enrollBtn')?.addEventListener('click', enroll);
+document.getElementById('signBtn')?.addEventListener('click', signOff);
+document.getElementById('notMeBtn')?.addEventListener('click', forget);
+</script>
+</body>
+</html>
