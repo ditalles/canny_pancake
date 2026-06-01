@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign off — {{ talk.topic }}</title>
+    <style>
+        :root { color-scheme: light dark; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               display: flex; align-items: center; justify-content: center;
+               min-height: 100vh; margin: 0; background: #f3f4f6; padding: 1rem; }
+        .card { background: #fff; border-radius: 16px; padding: 1.8rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,.08); width: 100%; max-width: 400px; }
+        h1 { font-size: 1.35rem; margin: 0 0 .25rem; }
+        .meta { color: #6b7280; font-size: .9rem; margin-bottom: 1rem; }
+        .points { white-space: pre-wrap; background: #f9fafb; border-radius: 10px;
+                  padding: 1rem; color: #374151; font-size: .95rem; margin-bottom: 1.2rem; }
+        input[type=text] { width: 100%; box-sizing: border-box; padding: .85rem 1rem;
+               font-size: 1.1rem; border: 2px solid #d1d5db; border-radius: 10px; }
+        .ack { display: flex; gap: .6rem; align-items: flex-start; margin: 1rem 0;
+               font-size: .95rem; }
+        .ack input { margin-top: .2rem; transform: scale(1.3); }
+        button { width: 100%; padding: .9rem; font-size: 1.1rem; font-weight: 600;
+                 color: #fff; background: #2563eb; border: none; border-radius: 10px;
+                 cursor: pointer; }
+        .msg { padding: 1rem; border-radius: 10px; margin-bottom: 1rem; text-align: center; }
+        .ok { background: #dcfce7; color: #166534; }
+        .warn { background: #fef9c3; color: #854d0e; }
+        .err { background: #fee2e2; color: #991b1b; }
+        .check { font-size: 3rem; text-align: center; }
+        .muted { color: #6b7280; font-size: .85rem; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        {% if success %}
+            <div class="check">✅</div>
+            <div class="msg ok">
+                <strong>{{ name }}</strong><br>
+                signed off on "<em>{{ talk.topic }}</em>"<br>at {{ time }}
+            </div>
+            <p class="muted">You can close this page.</p>
+        {% elif already %}
+            <div class="check">👍</div>
+            <div class="msg warn">
+                <strong>{{ name }}</strong> already signed this talk at {{ time }}.
+            </div>
+            <p class="muted">No need to sign again.</p>
+        {% else %}
+            <h1>{{ talk.topic }}</h1>
+            <div class="meta">{{ talk.talk_date }}{% if talk.presenter %} · {{ talk.presenter }}{% endif %}</div>
+            {% if talk.key_points %}<div class="points">{{ talk.key_points }}</div>{% endif %}
+            {% if error %}<div class="msg err">{{ error }}</div>{% endif %}
+            <form method="POST">
+                <input type="text" name="name" placeholder="Your full name"
+                       value="{{ name or '' }}" autocomplete="name" autofocus>
+                <label class="ack">
+                    <input type="checkbox" name="understood" value="1">
+                    <span>I attended this toolbox talk and understood the content.</span>
+                </label>
+                <button type="submit">Sign off</button>
+            </form>
+        {% endif %}
+    </div>
+</body>
+</html>
