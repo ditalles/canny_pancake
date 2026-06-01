@@ -42,13 +42,31 @@ WebAuthn only works on `https://` **or** on `http://localhost`. So:
   (Easiest paths to HTTPS: deploy behind a host like Render/Railway/Fly, or put
   Caddy/nginx with a Let's Encrypt cert in front.)
 
+## Supervisor login
+
+The dashboard, talk pages, CSV export and the `/workers` certificate overview
+are behind a **password login** (`/admin/login`). Workers never log in — they
+just scan a talk's QR code and use their own `/me` wallet.
+
+Set the password via environment variable (the default `admin` is for local
+testing only and prints a startup warning):
+
+```bash
+export ADMIN_PASSWORD="a-strong-password"
+```
+
+Because the login is a password, it must be served over **HTTPS** in
+production (same requirement as the passkeys). A worker can always view their
+own certificate file; only the owner or a logged-in supervisor can.
+
 ## Setup
 
 ```bash
 cd toolbox_passkey
 pip install -r requirements.txt
+export ADMIN_PASSWORD="a-strong-password"   # omit for a default 'admin' (dev only)
 python app.py
-# open http://localhost:5008/
+# open http://localhost:5008/  -> log in
 ```
 
 ## What's been tested vs. what needs a device
@@ -84,6 +102,7 @@ web page.
 
 | Route                              | Who    | Purpose                                |
 |------------------------------------|--------|----------------------------------------|
+| `/admin/login` · `/admin/logout`   | Admin  | Supervisor password login / logout     |
 | `/`                                | Admin  | List / create talks; links to people   |
 | `/talk/<id>`                       | Admin  | QR, live sign-offs, CSV export         |
 | `/attend/<token>`                  | Worker | Enrol (first time) or sign off         |
@@ -109,7 +128,8 @@ web page.
 - **Shared phones:** the "Not me? / Set up again" button forgets the device so
   the next person can enrol. For heavy shared use, consider the kiosk-badge
   model instead.
-- **Admin login** is still not implemented — add it before any real rollout so
-  only supervisors can create talks and read records.
+- **Admin login** gates all supervisor pages (set `ADMIN_PASSWORD`). For a
+  larger team you'd likely want per-supervisor accounts rather than one shared
+  password.
 - **Lost phone / re-enrolment:** a worker simply enrols again on a new device;
   consider an admin screen to view/revoke a worker's passkeys.

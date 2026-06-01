@@ -25,7 +25,12 @@
 </head>
 <body>
 <div class="wrap">
-    <h1>🦺 Toolbox Talks <span class="tag">· 🔒 passkey sign-off</span></h1>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+        <h1>🦺 Toolbox Talks <span class="tag">· 🔒 passkey sign-off</span></h1>
+        <form method="POST" action="{{ url_for('admin_logout') }}">
+            <button class="tag" style="background:none;border:none;cursor:pointer;text-decoration:underline">Log out</button>
+        </form>
+    </div>
     <p>
         <a class="btn" href="{{ url_for('new_talk') }}">+ New toolbox talk</a>
         <a class="btn" style="background:#6b7280" href="{{ url_for('workers') }}">👷 Workers &amp; certificates</a>

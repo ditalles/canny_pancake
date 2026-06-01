@@ -25,6 +25,7 @@ Run (local dev):
 """
 
 import csv
+import functools
 import io
 import os
 import secrets
@@ -86,6 +87,23 @@ CERT_TYPES = [
 
 # A certificate is flagged when it expires within this many days.
 EXPIRY_WARNING_DAYS = 60
+
+# Password for the supervisor (admin) pages. ALWAYS set ADMIN_PASSWORD in the
+# environment for real use; the default below is only for local testing.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD") or "admin"
+if ADMIN_PASSWORD == "admin":
+    print("WARNING: using default admin password 'admin'. "
+          "Set ADMIN_PASSWORD before deploying.")
+
+
+def require_admin(view):
+    """Gate a route behind supervisor login (session flag set at /admin/login)."""
+    @functools.wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("is_admin"):
+            return redirect(url_for("admin_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
 
 # WebAuthn relying-party config. For real (non-localhost) deployment, set these
 # to your HTTPS hostname, e.g. RP_ID=talks.example.com ORIGIN=https://talks.example.com
@@ -192,7 +210,26 @@ def worker_certs(worker_id):
 # --- Admin: talks (same as the simple variant) ------------------------------
 
 
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        if secrets.compare_digest(request.form.get("password", ""), ADMIN_PASSWORD):
+            session.permanent = True
+            session["is_admin"] = True
+            nxt = request.args.get("next")
+            return redirect(nxt if nxt and nxt.startswith("/") else url_for("index"))
+        return render_template("login.html", error="Incorrect password.")
+    return render_template("login.html")
+
+
+@app.route("/admin/logout", methods=["POST"])
+def admin_logout():
+    session.pop("is_admin", None)
+    return redirect(url_for("admin_login"))
+
+
 @app.route("/")
+@require_admin
 def index():
     talks = get_db().execute(
         "SELECT t.*, COUNT(s.id) AS attendees FROM talks t "
@@ -202,6 +239,7 @@ def index():
 
 
 @app.route("/talk/new", methods=["GET", "POST"])
+@require_admin
 def new_talk():
     if request.method == "POST":
         topic = (request.form.get("topic") or "").strip()
@@ -224,6 +262,7 @@ def new_talk():
 
 
 @app.route("/talk/<int:talk_id>")
+@require_admin
 def talk_detail(talk_id):
     db = get_db()
     talk = db.execute("SELECT * FROM talks WHERE id = ?", (talk_id,)).fetchone()
@@ -237,6 +276,7 @@ def talk_detail(talk_id):
 
 
 @app.route("/talk/<int:talk_id>/qr.svg")
+@require_admin
 def talk_qr(talk_id):
     talk = get_db().execute("SELECT token FROM talks WHERE id = ?",
                             (talk_id,)).fetchone()
@@ -250,6 +290,7 @@ def talk_qr(talk_id):
 
 
 @app.route("/talk/<int:talk_id>/export.csv")
+@require_admin
 def export_csv(talk_id):
     db = get_db()
     talk = db.execute("SELECT * FROM talks WHERE id = ?", (talk_id,)).fetchone()
@@ -502,10 +543,7 @@ def certificate_file(cert_id):
     worker = current_worker()
     is_owner = worker and worker["id"] == row["worker_id"]
     if not (is_owner or session.get("is_admin")):
-        # No admin auth yet (see README); for now any enrolled worker viewing
-        # the admin pages is trusted. Restrict cross-worker file access.
-        if not worker:
-            abort(403)
+        abort(403)  # only the owning worker or a logged-in supervisor
     # Strict content type + nosniff so user uploads can't be treated as HTML.
     return Response(row["content"], mimetype=row["mimetype"], headers={
         "Content-Disposition": f'inline; filename="{row["filename"] or "certificate"}"',
@@ -514,6 +552,7 @@ def certificate_file(cert_id):
 
 
 @app.route("/workers")
+@require_admin
 def workers():
     """Admin overview: every worker, their certs, and expiry warnings."""
     db = get_db()

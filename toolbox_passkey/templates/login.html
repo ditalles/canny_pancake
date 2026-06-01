@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor login</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               display: flex; align-items: center; justify-content: center;
+               min-height: 100vh; margin: 0; background: #f3f4f6; padding: 1rem; }
+        .card { background: #fff; border-radius: 16px; padding: 2rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,.08); width: 100%; max-width: 360px;
+                text-align: center; }
+        h1 { font-size: 1.3rem; margin: 0 0 1.2rem; }
+        input { width: 100%; box-sizing: border-box; padding: .85rem 1rem;
+                font-size: 1.05rem; border: 2px solid #d1d5db; border-radius: 10px;
+                margin-bottom: 1rem; }
+        button { width: 100%; padding: .9rem; font-size: 1.05rem; font-weight: 600;
+                 color: #fff; background: #2563eb; border: none; border-radius: 10px;
+                 cursor: pointer; }
+        .err { background: #fee2e2; color: #991b1b; padding: .8rem; border-radius: 10px;
+               margin-bottom: 1rem; }
+        .muted { color: #6b7280; font-size: .85rem; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔐 Supervisor login</h1>
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
+        <form method="POST">
+            <input type="password" name="password" placeholder="Password" autofocus
+                   autocomplete="current-password">
+            <button type="submit">Log in</button>
+        </form>
+        <p class="muted">Workers don't need to log in — just scan the talk's QR code.</p>
+    </div>
+</body>
+</html>
