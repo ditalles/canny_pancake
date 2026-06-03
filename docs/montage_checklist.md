@@ -1,11 +1,13 @@
 # Montage- & omgevingschecklist — OAK-D Lite kabel-inspectie
 
 > Doel: een betrouwbaar, afstand-onafhankelijk meetpunt voor de PoC
-> (`cable_inspection_poc.py`) in een natte, maritieme kade-omgeving.
+> (`run_monitor.py` / package `cable_monitor`) in een natte, maritieme
+> kade-omgeving.
 >
-> **Belangrijk:** dit is een PoC / monitoringslaag. `trigger_emergency_stop()`
-> is GEEN gecertificeerde veiligheidsfunctie (geen SIL/PL). De echte noodstop
-> hoort in een safety-rated besturing (zie certificering-advies).
+> **Belangrijk:** dit is een PoC / monitoringslaag. Het systeem bestuurt
+> GEEN machines (geen noodstop/actuator, geen SIL/PL veiligheidsfunctie).
+> Het meet, beoordeelt en visualiseert; de operator beslist of ingrijpen
+> nodig is. Een echte noodstop hoort in een safety-rated besturing.
 
 ---
 
@@ -65,7 +67,8 @@ De diktemeting hangt op Canny-randdetectie — licht maakt of breekt het.
 
 ## 5. Host & software-bring-up
 - [ ] `pip install depthai opencv-python numpy` op de host.
-- [ ] Camera detecteert: `python cable_inspection_poc.py` start zonder errors.
+- [ ] Camera detecteert: `python run_monitor.py --source depthai` start zonder
+      errors; dashboard op `http://<host>:5006`.
 - [ ] **Intrinsics-log gecontroleerd** (regel `[CALIB] ... fx= fy=`) — dit
       bevestigt dat de fabriekskalibratie uit de chip is gelezen.
 - [ ] USB-bus stabiel (USB3 indien mogelijk; geen brown-outs op een hub).

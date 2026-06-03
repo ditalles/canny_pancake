@@ -1,0 +1,5 @@
+# Catenary kabel-monitor (PoC)
+depthai>=2.24        # OAK-D Lite pijplijn (alleen nodig voor echte hardware)
+opencv-python>=4.8   # beeldverwerking + lokaal venster (of opencv-python-headless op een server)
+numpy>=1.24
+flask>=2.3           # operator-dashboard

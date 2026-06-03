@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catenary Monitor</title>
+<style>
+  :root { --ok:#16a34a; --warn:#f59e0b; --crit:#dc2626; --unknown:#9ca3af; --bg:#0f172a; --panel:#1e293b; --txt:#e2e8f0; --muted:#94a3b8; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:14px 20px; display:flex; align-items:center; gap:16px; border-bottom:1px solid #334155; }
+  header h1 { font-size:18px; margin:0; font-weight:600; }
+  #conn { font-size:12px; color:var(--muted); margin-left:auto; }
+  #banner { padding:16px 20px; font-size:22px; font-weight:700; display:flex; align-items:center; gap:14px; transition:background .2s; }
+  #banner .dot { width:18px; height:18px; border-radius:50%; background:#fff; }
+  #banner small { font-weight:400; font-size:14px; opacity:.95; }
+  .wrap { display:grid; grid-template-columns: 1.3fr 1fr; gap:16px; padding:16px 20px; }
+  @media (max-width: 900px){ .wrap { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid #334155; border-radius:12px; padding:14px; }
+  .panel h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 10px; }
+  #video { width:100%; border-radius:8px; display:block; background:#000; aspect-ratio:16/10; object-fit:contain; }
+  .tiles { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  .tile { background:#0b1220; border:1px solid #334155; border-radius:10px; padding:12px; }
+  .tile .v { font-size:26px; font-weight:700; }
+  .tile .l { font-size:12px; color:var(--muted); }
+  .tile .u { font-size:13px; color:var(--muted); }
+  .bars { display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .bar { font-size:12px; }
+  .bar .track { height:8px; background:#0b1220; border-radius:4px; overflow:hidden; margin-top:3px; }
+  .bar .fill { height:100%; background:var(--ok); }
+  canvas { width:100%; height:160px; background:#0b1220; border-radius:8px; }
+  .reasons { font-size:13px; color:var(--muted); margin-top:6px; min-height:18px; }
+  .footnote { padding:6px 20px 20px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛰️ Catenary Monitor — kabel-inspectie</h1>
+  <span id="conn">verbinden…</span>
+</header>
+
+<div id="banner"><span class="dot"></span><span id="banner-txt">—</span></div>
+
+<div class="wrap">
+  <div class="panel">
+    <h2>Live beeld (geannoteerd)</h2>
+    <img id="video" src="/video" alt="live">
+    <div class="reasons" id="reasons">—</div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>Meetwaarden</h2>
+      <div class="tiles">
+        <div class="tile"><div class="l">Meterstand</div><div class="v"><span id="distance">0.0</span> <span class="u">m</span></div></div>
+        <div class="tile"><div class="l">Snelheid</div><div class="v"><span id="speed">0.0</span> <span class="u">cm/s</span></div></div>
+        <div class="tile"><div class="l">Dikte</div><div class="v"><span id="diameter">0.0</span> <span class="u">mm</span></div></div>
+        <div class="tile"><div class="l">Afwijking</div><div class="v"><span id="deviation">0.0</span> <span class="u">%</span></div></div>
+        <div class="tile"><div class="l">Afstand Z (catenary)</div><div class="v"><span id="z">0.00</span> <span class="u">m</span></div></div>
+        <div class="tile"><div class="l">Zicht</div><div class="v"><span id="vis">100</span> <span class="u">%</span></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Zicht / health</h2>
+      <div class="bars" id="metrics"></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" style="padding-top:0;">
+  <div class="panel"><h2>Dikte t.o.v. baseline</h2><canvas id="chart-d"></canvas></div>
+  <div class="panel"><h2>Zicht-score</h2><canvas id="chart-v"></canvas></div>
+</div>
+
+<div class="footnote">
+  Monitoring-only. Deze monitor bestuurt geen machines; de operator beslist of
+  ingrijpen nodig is. Bij onbetrouwbaar zicht worden anomalie-alarmen
+  onderdrukt en als <b>ZICHT ONBETROUWBAAR</b> getoond.
+</div>
+
+<script>
+const COLOR = { OK:'#16a34a', WARN:'#f59e0b', CRIT:'#dc2626', UNKNOWN:'#9ca3af' };
+const $ = id => document.getElementById(id);
+
+function drawChart(canvas, points, opts){
+  const c = canvas.getContext('2d');
+  const W = canvas.width = canvas.clientWidth, H = canvas.height = canvas.clientHeight;
+  c.clearRect(0,0,W,H);
+  if(points.length < 2) return;
+  const min = opts.min, max = opts.max, pad = 6;
+  const x = i => pad + (W-2*pad) * i/(points.length-1);
+  const y = v => H-pad - (H-2*pad) * (Math.min(max,Math.max(min,v))-min)/(max-min);
+  // baseline (optioneel)
+  if(opts.baseline!=null){
+    c.strokeStyle='#475569'; c.setLineDash([4,4]); c.beginPath();
+    c.moveTo(pad,y(opts.baseline)); c.lineTo(W-pad,y(opts.baseline)); c.stroke();
+    c.setLineDash([]);
+  }
+  c.strokeStyle=opts.color; c.lineWidth=2; c.beginPath();
+  points.forEach((v,i)=>{ i?c.lineTo(x(i),y(v)):c.moveTo(x(i),y(v)); });
+  c.stroke();
+}
+
+function render(s){
+  $('conn').textContent = s.stale_s!=null ? `live · ${s.fps} fps` : 'verbinden…';
+  $('distance').textContent = s.distance_m.toFixed(1);
+  $('speed').textContent = s.speed_cms.toFixed(1);
+  $('diameter').textContent = s.diameter_mm.toFixed(1);
+  $('deviation').textContent = s.deviation_pct.toFixed(1);
+  $('z').textContent = s.z_m.toFixed(2);
+  $('vis').textContent = Math.round(s.visibility*100);
+
+  const col = COLOR[s.status] || '#9ca3af';
+  const banner = $('banner');
+  banner.style.background = col;
+  banner.style.color = (s.status==='WARN') ? '#1f2937' : '#fff';
+  banner.querySelector('.dot').style.background = (s.status==='WARN')?'#1f2937':'#fff';
+  let label = {OK:'OK',WARN:'WAARSCHUWING',CRIT:'KRITIEK',UNKNOWN:'ZICHT ONBETROUWBAAR'}[s.status]||s.status;
+  if(s.calibrating) label = 'KALIBREREN…';
+  $('banner-txt').innerHTML = label + ' <small>(' + s.health + ')</small>';
+  $('reasons').textContent = (s.reasons||[]).join('  •  ');
+
+  // health-metrics als balkjes
+  const m = s.metrics||{};
+  const defs = [
+    ['Helderheid', m.brightness, 1],
+    ['Scherpte', m.focus, 1],
+    ['Neerslag', m.precip, 1, true],
+    ['Depth-dekking', m.depth_valid, 1],
+  ];
+  $('metrics').innerHTML = defs.map(([n,v,mx,inv])=>{
+    v = v||0; let pct = Math.min(100, 100*v/mx);
+    let good = inv ? (v < 0.45) : (v > 0.2);
+    let c = good ? 'var(--ok)' : 'var(--warn)';
+    return `<div class="bar">${n}: ${(v).toFixed(2)}
+      <div class="track"><div class="fill" style="width:${pct}%;background:${c}"></div></div></div>`;
+  }).join('');
+
+  const hist = s.history||[];
+  drawChart($('chart-d'), hist.map(h=>h.diameter),
+    {min: s.baseline_mm*0.6, max: s.baseline_mm*1.5, color:'#38bdf8', baseline:s.baseline_mm});
+  drawChart($('chart-v'), hist.map(h=>h.visibility), {min:0, max:1, color:'#a78bfa'});
+}
+
+// SSE live, met polling-fallback
+try {
+  const es = new EventSource('/stream');
+  es.onmessage = e => render(JSON.parse(e.data));
+  es.onerror = () => { $('conn').textContent = 'herverbinden…'; };
+} catch(e) {
+  setInterval(()=>fetch('/api/state').then(r=>r.json()).then(render), 500);
+}
+</script>
+</body>
+</html>
